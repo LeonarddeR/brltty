@@ -44,6 +44,10 @@ install:
   # Removing .git ensures the REVISION is used.
   - rmdir /Q /S .git
   - cmd: |
+      cd C:
+      cd C:\MinGW
+      cd C:\MinGW\msys
+      cd C:\MinGW\msys\1.0
       cd C:\MinGW\msys\1.0\bin
       C:\MinGW\msys\1.0\bin\bash.exe -lc "cd $APPVEYOR_BUILD_FOLDER; windows/winsetup"
 
