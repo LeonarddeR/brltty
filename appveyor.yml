@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2024 by The BRLTTY Developers.
+# Copyright (C) 1995-2023 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -16,7 +16,7 @@
 # This software is maintained by Dave Mielke <dave@mielke.cc>.
 ###############################################################################
 
-os: Previous Visual Studio 2022
+os: Visual Studio 2022
 version: "appveyor-{build}"
 branches:
   only:
@@ -44,6 +44,7 @@ install:
   # Removing .git ensures the REVISION is used.
   - rmdir /Q /S .git
   - cmd: |
+      cd C:\MinGW\msys\1.0\bin
       C:\MinGW\msys\1.0\bin\bash.exe -lc "cd $APPVEYOR_BUILD_FOLDER; windows/winsetup"
 
 build_script:
