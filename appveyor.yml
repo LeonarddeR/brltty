@@ -16,7 +16,7 @@
 # This software is maintained by Dave Mielke <dave@mielke.cc>.
 ###############################################################################
 
-os: Visual Studio 2022
+os: Visual Studio 2019
 version: "appveyor-{build}"
 branches:
   only:
