@@ -3,36 +3,39 @@ name: build BRLTTY for Windows
 on:
   push:
     branches: [master, gh-actions-windows-build]
+
   pull_request:
     branches: [master]
+
   workflow_dispatch:
 
 jobs:
   build_brltty:
     runs-on: windows-2025
 
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - msystem: MINGW64
-            arch: mingw-w64-x86_64
-          - msystem: UCRT64
-            arch: mingw-w64-ucrt-x86_64
-
     defaults:
       run:
         shell: msys2 {0}
 
     steps:
+      - uses: actions/setup-python@v5
+        with:
+          python-version: 3.13
+          architecture: x64
+      - name: Install setuptools and cython
+        shell: cmd
+        run: |
+          python -m pip install --upgrade pip
+          pip install setuptools cython
+
       - name: Set up MSYS environment
         uses: msys2/setup-msys2@v2
         with:
-          msystem: ${{ matrix.msystem }}
+          msystem: UCRT64
+          update: true
           install: >-
             autoconf
             automake
-            make
             tcl
             awk
             bison
@@ -40,17 +43,19 @@ jobs:
             groff
             m4
             patch
-            ${{ matrix.arch }}-pdcurses
-            ${{ matrix.arch }}-icu
-            ${{ matrix.arch }}-tcl
-            ${{ matrix.arch }}-winpthreads-git
-            ${{ matrix.arch }}-libiconv
-            ${{ matrix.arch }}-toolchain
-            ${{ matrix.arch }}-python
-            ${{ matrix.arch }}-python-setuptools
-            ${{ matrix.arch }}-cython
+            mingw-w64-ucrt-x86_64-pdcurses
+            mingw-w64-ucrt-x86_64-icu
+            mingw-w64-ucrt-x86_64-tcl
+            mingw-w64-ucrt-x86_64-winpthreads-git
+            mingw-w64-ucrt-x86_64-libiconv
+            mingw-w64-ucrt-x86_64-toolchain
 
-      - uses: actions/checkout@v3
+      - name: Prepend Windows Python to MSYS PATH
+        run: |
+          export PATH="$(cygpath -u "$Python_ROOT_DIR"):$PATH"
+          echo "PATH=$PATH" >> $GITHUB_ENV
+
+      - uses: actions/checkout@v4
 
       - name: Apply patches
         run: patch -p0 <"Windows/affinity.patch"
@@ -62,25 +67,24 @@ jobs:
 
       - name: Build BRLTTY
         run: |
-          make
-          make -C Documents
-
+          mingw32-make
+          mingw32-make -C Documents
       - name: Install BRLTTY
         run: |
           mkdir -p install/{bin,etc,lib,python}
-          make install install-messages JAVA_JAR_DIR=/lib JAVA_JNI_DIR=/lib PYTHON_PREFIX="Python" INSTALL_ROOT="./install"
+          mingw32-make install install-messages JAVA_JAR_DIR=/lib JAVA_JNI_DIR=/lib     PYTHON_PREFIX="Python" INSTALL_ROOT="./install"
           cp Documents/brltty.conf install/etc/
           cp Programs/*.exe Programs/*.dll install/bin
           cp Bindings/Python/dist/* install/python/
           cp LICENSE-LGPL install/LICENSE-LGPL.txt
           cp Documents/*.csv install/etc/
           cp Windows/*.bat install/
-          cp $MINGW_PREFIX/bin/libgcc_s*.dll $MINGW_PREFIX/bin/libiconv-2.dll $MINGW_PREFIX/bin/libpdcurses*.dll $MINGW_PREFIX/bin/libintl-8.dll install/bin/ 2>/dev/null || true
+          cp /mingw32/bin/{libgcc_s_dw2-1.dll,libiconv-2.dll,libpdcurses*.dll,libintl-8.dll} install/bin/
           cd install/
           rm -f "bin/brltty-config"
           rm -f "etc/brlapi.key"
 
       - uses: actions/upload-artifact@v4
         with:
-          name: brltty-${{ matrix.msystem }}
+          name: brltty
           path: install
