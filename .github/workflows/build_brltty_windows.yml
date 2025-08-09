@@ -22,12 +22,11 @@ jobs:
       - name: Set up MSYS environment
         uses: msys2/setup-msys2@v2
         with:
-          msystem: MINGW32
+          msystem: UCRT64
           # update: true
           install: >-
             autoconf
             automake
-            make
             tcl
             awk
             bison
@@ -35,15 +34,16 @@ jobs:
             groff
             m4
             patch
-            mingw-w64-i686-pdcurses
-            mingw-w64-i686-icu
-            mingw-w64-i686-tcl
-            mingw-w64-i686-winpthreads-git
-            mingw-w64-i686-libiconv
-            mingw-w64-i686-toolchain
-            mingw-w64-i686-python
-            mingw-w64-i686-python-setuptools
-            mingw-w64-i686-cython
+            mingw-w64-ucrt-x86_64-pdcurses
+            mingw-w64-ucrt-x86_64-icu
+            mingw-w64-ucrt-x86_64-tcl
+            mingw-w64-ucrt-x86_64-winpthreads-git
+            mingw-w64-ucrt-x86_64-libiconv
+            mingw-w64-ucrt-x86_64-toolchain
+            mingw-w64-ucrt-x86_64-python
+            mingw-w64-ucrt-x86_64-python-setuptools
+            mingw-w64-ucrt-x86_64-cython
+
       - uses: actions/checkout@v3
       
       - name: Apply patches
