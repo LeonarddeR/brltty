@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -34,8 +34,8 @@ install-units: install-units-directory
 	$(INSTALL_DATA) $(SRC_DIR)/brltty@.path $(SYSTEMD_UNITS_DIRECTORY)
 	$(INSTALL_DATA) $(SRC_DIR)/brltty.path $(SYSTEMD_UNITS_DIRECTORY)
 
-install-wrapper: install-commands-directory
-	$(INSTALL_SCRIPT) $(SRC_DIR)/systemd-wrapper $(INSTALL_COMMANDS_DIRECTORY)
+install-wrapper: install-helpers-directory
+	$(INSTALL_SCRIPT) $(SRC_DIR)/systemd-wrapper $(INSTALL_HELPERS_DIRECTORY)
 
 install-users-directory:
 	$(INSTALL_DIRECTORY) $(SYSTEMD_USERS_DIRECTORY)
@@ -53,7 +53,7 @@ uninstall:
 	-rm -f $(SYSTEMD_UNITS_DIRECTORY)/$(PACKAGE_TARNAME).*
 	-rm -f $(SYSTEMD_UNITS_DIRECTORY)/$(PACKAGE_TARNAME)@.*
 	-rm -f $(SYSTEMD_UNITS_DIRECTORY)/$(PACKAGE_TARNAME)-*
-	-rm -f $(INSTALL_COMMANDS_DIRECTORY)/systemd-*
+	-rm -f $(INSTALL_HELPERS_DIRECTORY)/systemd-*
 	-rm -f $(SYSTEMD_USERS_FILE)
 	-rm -f $(SYSTEMD_FILES_FILE)
 

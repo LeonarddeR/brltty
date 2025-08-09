@@ -1,7 +1,7 @@
 ###############################################################################
 # libbrlapi - A library providing access to braille terminals for applications.
 #
-# Copyright (C) 2006-2023 by
+# Copyright (C) 2006-2025 by
 #   Samuel Thibault <Samuel.Thibault@ens-lyon.org>
 #   Sébastien Hinderer <Sebastien.Hinderer@ens-lyon.org>
 #
@@ -68,7 +68,7 @@ doc: doc.made
 
 doc.made: $(JAVA_SOURCES)
 	$(INSTALL_DIRECTORY) doc
-	$(JAVADOC) -quiet -d doc -author -notimestamp -version -use $^
+	$(JAVADOC) -quiet -d doc -Xdoclint:none -author -notimestamp -version -use $^
 	touch $@
 
 clean::

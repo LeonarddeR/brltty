@@ -1,7 +1,7 @@
 ###############################################################################
 # libbrlapi - A library providing access to braille terminals for applications.
 #
-# Copyright (C) 2006-2023 by Dave Mielke <dave@mielke.cc>
+# Copyright (C) 2006-2025 by Dave Mielke <dave@mielke.cc>
 #
 # libbrlapi comes with ABSOLUTELY NO WARRANTY.
 #
@@ -51,8 +51,20 @@ fi
 
 ${TCL_OK} && {
    test -n "${TCL_PACKAGE_PATH}" && {
-      for directory in ${TCL_PACKAGE_PATH}
+      directories="${TCL_PACKAGE_PATH}"
+
+      test "${directories#*:}" = "${directories}" && {
+         # There's no colon so it's an old-style (before tcl-8.6.15) path.
+         # Replace each sequence of one or more spaces with a single colon.
+         directories="${directories// /:}"
+      }
+
+      while test "${#directories}" -gt 0
       do
+         directory="${directories%%:*}"
+         directories="${directories#*:}"
+         test "${#directory}" -eq 0 && continue
+
          test `expr "${directory}" : '.*/lib'` -eq 0 || {
             TCL_DIR="${directory}"
             break

@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -25,6 +25,7 @@
 
 #include "program.h"
 #include "cmdline.h"
+#include "options.h"
 #include "parameters.h"
 #include "log.h"
 #include "parse.h"
@@ -42,10 +43,9 @@
 
 BrailleDisplay brl;
 
-static char *opt_brailleDevice;
+char *opt_brailleDevice;
 char *opt_driversDirectory;
-static char *opt_tablesDirectory;
-static char *opt_writableDirectory;
+char *opt_tablesDirectory;
 
 BEGIN_OPTION_TABLE(programOptions)
   { .word = "device",
@@ -61,7 +61,7 @@ BEGIN_OPTION_TABLE(programOptions)
     .argument = strtext("directory"),
     .setting.string = &opt_tablesDirectory,
     .internal.setting = TABLES_DIRECTORY,
-    .internal.adjust = fixInstallPath,
+    .internal.adjust = toAbsoluteInstallPath,
     .description = strtext("Path to directory containing tables.")
   },
 
@@ -70,7 +70,7 @@ BEGIN_OPTION_TABLE(programOptions)
     .argument = "directory",
     .setting.string = &opt_driversDirectory,
     .internal.setting = DRIVERS_DIRECTORY,
-    .internal.adjust = fixInstallPath,
+    .internal.adjust = toAbsoluteInstallPath,
     .description = "Path to directory for loading drivers."
   },
 
@@ -79,7 +79,7 @@ BEGIN_OPTION_TABLE(programOptions)
     .argument = strtext("directory"),
     .setting.string = &opt_writableDirectory,
     .internal.setting = WRITABLE_DIRECTORY,
-    .internal.adjust = fixInstallPath,
+    .internal.adjust = toAbsoluteInstallPath,
     .description = strtext("Path to directory which can be written to.")
   },
 END_OPTION_TABLE(programOptions)
@@ -104,8 +104,6 @@ main (int argc, char *argv[]) {
 
     PROCESS_OPTIONS(descriptor, argc, argv);
   }
-
-  setWritableDirectory(opt_writableDirectory);
 
   if (argc) {
     driver = *argv++, --argc;
@@ -286,6 +284,11 @@ message (const char *mode, const char *text, MessageOptions options) {
   }
 
   popCommandEnvironment();
+  return 1;
+}
+
+int
+sayMessage (const char *text) {
   return 1;
 }
 

@@ -2,9 +2,9 @@ BRLTTY is a background process (daemon) providing access to the Linux/Unix
 console (when in text mode) for a blind person using a refreshable braille
 display.
 
-Version 6.6, Jul 2023
+Version 6.8, Jul 2025
 
-Copyright (C) 1995-2023 by The BRLTTY Developers.
+Copyright (C) 1995-2025 by The BRLTTY Developers.
 
 Web Page: http://brltty.app/
 
@@ -21,7 +21,7 @@ This software is maintained by: Dave Mielke <dave@mielke.cc>
 The members of The BRLTTY Team are:
 
    Dave Mielke <dave@mielke.cc>
-   Mario Lang <mlang@delysid.org>
+   Mario Lang <mlang@tugraz.at>
    Nicolas Pitre <nico@fluxnic.net>
    Stéphane Doyon <s.doyon@videotron.ca>
 
@@ -159,7 +159,7 @@ The following braille displays are supported:
          VarioConnect 12/24/32/40/64/80, VarioPro 40/64/80, VarioUltra 20/32/40]
 -  BrailComm [III]
 -  BrailleLite [18/40/M20/M40]
--  BrailleMemo [Pocket (16), Smart (16), 32, 40]
+-  BrailleMemo [Pocket, Smart, Next Touch]
 -  BrailleNote [18/32, Apex]
 -  Braudi
 -  BrlAPI
@@ -174,13 +174,14 @@ The following braille displays are supported:
                       PAC Mate 20/40]
 -  HandyTech [Modular 20/40/80, Modular Evolution 64/88, Modular Connect 88,
               Active Braille, Active Braille S, Active Star 40,
-              Actilino, Activator,
-              Basic Braille 16/20/32/40/48/64/80, Braillino,
-              Braille Wave, Easy Braille, Braille Star 40/80,
+              Actilino, Activator, Activator Pro 64/80,
+              Basic Braille 16/20/32/40/48/64/80,
+              Basic Braille Plus 20/32/40/48/64/80/84,
+              Braille Wave, Braillino, Easy Braille, Braille Star 40/80,
               Connect Braille 40, Bookworm]
 -  Hedo [ProfiLine, MobilLine]
--  HIMS [Braille Sense, SyncBraille, Braille Edge,
-         Smart Beetle, QBrailleXL]
+-  HIMS [Braille Sense, BrailleSense 6, SyncBraille, Braille Edge,
+         Smart Beetle, QBrailleXL, eMotion]
 -  HumanWare [Brailliant BI 14/32/40, Brailliant BI 20X/40X,
               Brailliant B 80, BrailleNote Touch, BrailleOne,
               APH Chameleon 20, APH Mantis Q40, NLS eReader]

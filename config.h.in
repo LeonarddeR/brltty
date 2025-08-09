@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -316,6 +316,9 @@ extern "C" {
 /* Define this if the header file syslog.h exists. */
 #undef HAVE_SYSLOG_H
 
+/* Define this if the header file termios.h exists. */
+#undef HAVE_TERMIOS_H
+
 /* Define this if the header file wchar.h exists. */
 #undef HAVE_WCHAR_H
 
@@ -536,7 +539,7 @@ extern "C" {
 #undef PREFERENCES_FILE
 
 /* Define this to be a string containing the path to the helper commands directory. */
-#undef COMMANDS_DIRECTORY
+#undef HELPERS_DIRECTORY
 
 /* Define this to be a string containing the path to the drivers directory. */
 #undef DRIVERS_DIRECTORY

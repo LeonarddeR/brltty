@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -97,6 +97,11 @@ ptyBeginTerminal (PtyObject *pty, int driverDirectives) {
 void
 ptyEndTerminal (void) {
   ptyEndScreen();
+}
+
+void
+ptyResizeTerminal (unsigned int lines, unsigned int columns) {
+  ptyResizeScreen(lines, columns);
 }
 
 static void
@@ -574,7 +579,21 @@ performBracketAction (unsigned char byte) {
       return OBP_DONE;
     }
 
-    case 'H': {
+    {
+      const char *action;
+      int allowZero;
+
+    case 'f':
+      action = "hvp";
+      allowZero = 1;
+      goto doMoveCursor;
+
+    case 'H':
+      action = "cup";
+      allowZero = 0;
+      goto doMoveCursor;
+
+    doMoveCursor:
       if (outputParserNumberCount == 0) {
         addOutputParserNumber(1);
         addOutputParserNumber(1);
@@ -585,10 +604,15 @@ performBracketAction (unsigned char byte) {
       unsigned int *row = &outputParserNumberArray[0];
       unsigned int *column = &outputParserNumberArray[1];
 
-      if (!(*row)--) return OBP_UNEXPECTED;
-      if (!(*column)--) return OBP_UNEXPECTED;
+      if (allowZero) {
+        if (*row) *row -= 1;
+        if (*column) *column -= 1;
+      } else {
+        if (!(*row)--) return OBP_UNEXPECTED;
+        if (!(*column)--) return OBP_UNEXPECTED;
+      }
 
-      logOutputAction("cup", "set cursor position");
+      logOutputAction(action, "set cursor position");
       ptySetCursorPosition(*row, *column);
       return OBP_DONE;
     }

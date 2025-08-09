@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -47,11 +47,11 @@ ACTION=="remove", GOTO="brltty_udev_remove"
 GOTO="brltty_device_end"
 
 LABEL="brltty_udev_add"
-RUN+="@COMMANDS_DIRECTORY@/udev-wrapper"
+RUN+="@HELPERS_DIRECTORY@/udev-wrapper"
 GOTO="brltty_device_end"
 
 LABEL="brltty_udev_remove"
-RUN+="@COMMANDS_DIRECTORY@/udev-wrapper -C"
+RUN+="@HELPERS_DIRECTORY@/udev-wrapper -C"
 GOTO="brltty_device_end"
 
 LABEL="brltty_upstart"

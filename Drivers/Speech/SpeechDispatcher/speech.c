@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -25,19 +25,21 @@
 #include "parse.h"
 
 typedef enum {
-  PARM_PORT,
+  PARM_ADDRESS,
+  PARM_AUTOSPAWN,
   PARM_MODULE,
   PARM_LANGUAGE,
   PARM_VOICE,
   PARM_NAME
 } DriverParameter;
-#define SPKPARMS "port", "module", "language", "voice", "name"
+#define SPKPARMS "address", "autospawn", "module", "language", "voice", "name"
 
 #include "spk_driver.h"
 
 #include <libspeechd.h>
 
 static SPDConnection *connectionHandle = NULL;
+static unsigned int autospawn;
 static const char *moduleName;
 static const char *languageName;
 static SPDVoiceType voiceType;
@@ -45,10 +47,11 @@ static const char *voiceName;
 static signed int relativeVolume;
 static signed int relativeRate;
 static signed int relativePitch;
-static SPDPunctuation punctuationVerbosity;
+static SPDPunctuation punctuationLevel;
 
 static void
 clearSettings (void) {
+  autospawn = 1;
   moduleName = NULL;
   languageName = NULL;
   voiceType = -1;
@@ -56,7 +59,7 @@ clearSettings (void) {
   relativeVolume = 0;
   relativeRate = 0;
   relativePitch = 0;
-  punctuationVerbosity = -1;
+  punctuationLevel = -1;
 }
 
 static void
@@ -135,16 +138,19 @@ spk_setPitch (SpeechSynthesizer *spk, unsigned char setting) {
 
 static void
 setPunctuation (const void *data) {
-  if (punctuationVerbosity != -1) spd_set_punctuation(connectionHandle, punctuationVerbosity);
+  if (punctuationLevel != -1) spd_set_punctuation(connectionHandle, punctuationLevel);
 }
 
 static void
 spk_setPunctuation (SpeechSynthesizer *spk, SpeechPunctuation setting) {
-  punctuationVerbosity = (setting <= SPK_PUNCTUATION_NONE)? SPD_PUNCT_NONE: 
-                         (setting >= SPK_PUNCTUATION_ALL)? SPD_PUNCT_ALL: 
-                         SPD_PUNCT_SOME;
+  punctuationLevel = (setting <= SPK_PUNCTUATION_NONE)? SPD_PUNCT_NONE: 
+                     (setting >= SPK_PUNCTUATION_ALL)? SPD_PUNCT_ALL: 
+                     (setting == SPK_PUNCTUATION_SOME)? SPD_PUNCT_SOME:
+                     (setting == SPK_PUNCTUATION_MOST)? SPD_PUNCT_MOST:
+                     -1;
+
   speechdAction(setPunctuation, NULL);
-  logMessage(LOG_DEBUG, "set punctuation: %u -> %d", setting, punctuationVerbosity);
+  logMessage(LOG_DEBUG, "set punctuation: %u -> %d", setting, punctuationLevel);
 }
 
 static void
@@ -155,8 +161,10 @@ cancelSpeech (const void *data) {
 static int
 openConnection (void) {
   if (!connectionHandle) {
-    if (!(connectionHandle = spd_open("brltty", "main", NULL, SPD_MODE_THREADED))) {
-      logMessage(LOG_ERR, "speech dispatcher open failure");
+    char **error_message = NULL;
+    if (!(connectionHandle = spd_open2("brltty", "main", NULL, SPD_MODE_THREADED, NULL, autospawn, error_message))) {
+      logMessage(LOG_ERR, "speech dispatcher open failure: %s",*error_message);
+      free(*error_message);
       return 0;
     }
 
@@ -189,17 +197,15 @@ spk_construct (SpeechSynthesizer *spk, char **parameters) {
 
   clearSettings();
 
-  if (parameters[PARM_PORT] && *parameters[PARM_PORT]) {
-    static const int minimumPort = 0X1;
-    static const int maximumPort = 0XFFFF;
-    int port = 0;
+  if (parameters[PARM_ADDRESS] && *parameters[PARM_ADDRESS]) {
+    setenv("SPEECHD_ADDRESS", parameters[PARM_ADDRESS], 0);
+  }
 
-    if (validateInteger(&port, parameters[PARM_PORT], &minimumPort, &maximumPort)) {
-      char number[0X10];
-      snprintf(number, sizeof(number), "%d", port);
-      setenv("SPEECHD_PORT", number, 1);
-    } else {
-      logMessage(LOG_WARNING, "%s: %s", "invalid port number", parameters[PARM_PORT]);
+  if (parameters[PARM_AUTOSPAWN] && *parameters[PARM_AUTOSPAWN]) {
+    if (!validateYesNo(&autospawn, parameters[PARM_AUTOSPAWN])) {
+      logMessage(LOG_WARNING, "%s: %s",
+        "invalid value for the autospawn parameter",
+        parameters[PARM_AUTOSPAWN]);
     }
   }
 

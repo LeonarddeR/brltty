@@ -3,7 +3,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -704,6 +704,11 @@ set genericDevices [makeGenericDeviceTable {
    {  0X10C4 0XEA80
       "Cygnal Integrated Products, Inc."
       "CP210x UART Bridge"
+   }
+
+   {  0X1A86 0X55D3
+      "QinHeng Electronics"
+      "USB Single Serial"
    }
 
    {  0X1A86 0X7523

@@ -3,7 +3,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -97,199 +97,7 @@ has also been incorporated.
 Install this package if you use a refreshable braille display.
 
 
-%package -n brltty-braille-brlapi
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-AutoProv: no
-AutoReq: yes
-
-Summary: BrlAPI braille driver for BRLTTY.
-%description -n brltty-braille-brlapi
-This package provides the BrlAPI braille driver for BRLTTY.
-
-Install this package if you need to communicate with
-another instance of BRLTTY which is actually in control
-of the braille device.
-
-
-%package -n brltty-braille-xwindow
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-Requires: libX11
-
-BuildRequires: xorg-x11-proto-devel
-BuildRequires: libX11-devel
-BuildRequires: libXt-devel
-BuildRequires: neXtaw-devel
-
-AutoProv: no
-AutoReq: yes
-
-Summary: XWindow braille driver for BRLTTY.
-%description -n brltty-braille-xwindow
-This package provides the XWindow braille driver for BRLTTY.
-This driver presents a virtual braille device within a graphical
-user interface. It is primarily intended for sighted developers
-who don't have access to a real braille device but still wish to
-assess the accessibility of their applications.
-
-Install this package if you would like to see how usable an
-application would be by a blind person using a braille device.
-
-
-%package -n brltty-speech-espeak
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-Requires: espeak
-
-BuildRequires: espeak-devel
-
-AutoProv: no
-AutoReq: yes
-
-Summary: eSpeak speech driver for BRLTTY.
-%description -n brltty-speech-espeak
-This package provides the eSpeak speech driver for BRLTTY.
-
-Install this package if you would like to be able to use the
-eSpeak text-to-speech engine.
-
-
-%package -n brltty-speech-espeak-ng
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-Requires: espeak-ng
-
-BuildRequires: espeak-ng-devel
-
-AutoProv: no
-AutoReq: yes
-
-Summary: eSpeak-NG speech driver for BRLTTY.
-%description -n brltty-speech-espeak-ng
-This package provides the eSpeak-NG speech driver for BRLTTY.
-
-Install this package if you would like to be able to use the
-eSpeak-NG text-to-speech engine.
-
-
-%package -n brltty-speech-festival
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-Requires: festival
-
-AutoProv: no
-AutoReq: yes
-
-Summary: Festival speech driver for BRLTTY.
-%description -n brltty-speech-festival
-This package provides the Festival speech driver for BRLTTY.
-
-Install this package if you would like to be able to use the
-Festival text-to-speech engine.
-
-
-%package -n brltty-speech-flite
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-Requires: flite
-
-BuildRequires: flite-devel
-
-AutoProv: no
-AutoReq: yes
-
-Summary: Festival Lite speech driver for BRLTTY.
-%description -n brltty-speech-flite
-This package provides the Festival Lite speech driver for BRLTTY.
-
-Install this package if you would like to be able to use the
-Festival Lite text-to-speech engine.
-
-
-%package -n brltty-speech-speechd
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-Requires: speech-dispatcher
-
-BuildRequires: speech-dispatcher-devel
-
-AutoProv: no
-AutoReq: yes
-
-Summary: Speech Dispatcher speech driver for BRLTTY.
-%description -n brltty-speech-speechd
-This package provides the Speech Dispatcher speech driver for BRLTTY.
-
-Install this package if you would like to be able to use the
-Speech Dispatcher text-to-speech server.
-
-
-%package -n brltty-screen-atspi2
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-Requires: dbus-libs
-
-BuildRequires: at-spi2-core-devel
-BuildRequires: xorg-x11-proto-devel
-BuildRequires: dbus-devel
-
-AutoProv: no
-AutoReq: yes
-
-Summary: AT-SPI2 screen driver for BRLTTY.
-%description -n brltty-screen-atspi2
-This package provides the AT-SPI2 screen driver for BRLTTY.
-
-Install this package if you would like to be able to
-access graphical applications via the D-Bus port of
-the Assistive Technology Service Provider Interface.
-
-
-%package -n brltty-screen-screen
-Version: @PACKAGE_VERSION@
-Release: 1
-Group: System Environment/Daemons
-License: LGPL
-
-AutoProv: no
-AutoReq: yes
-Requires: screen
-
-Summary: Screen screen driver for BRLTTY.
-%description -n brltty-screen-screen
-This package provides the Screen screen driver for BRLTTY.
-
-Install this package if you would like to be able to
-directly access session windows maintained by the
-screen program.
-
-
-%package -n brltty-utils
+%package utils
 Version: @PACKAGE_VERSION@
 Release: 1
 Group: Development/Tools
@@ -307,11 +115,11 @@ AutoProv: no
 AutoReq: yes
 
 Summary: Commands for maintaining BRLTTY data files.
-%description -n brltty-utils
+%description utils
 This package provides a set of commands for maintaining BRLTTY's datafiles.
 
 
-%package -n brltty-devel
+%package devel
 Version: @PACKAGE_VERSION@
 Release: 1
 Group: Development/Tools
@@ -321,7 +129,7 @@ AutoProv: no
 AutoReq: yes
 
 Summary: Headers for BRLTTY.
-%description -n brltty-devel
+%description devel
 This package provides many of the header files for BRLTTY's core, as well as
 header files which define the packets and keys for several braille devices.
 
@@ -331,78 +139,196 @@ needs to interpret and/or create raw braille device packets, or which needs to
 interpret key codes as delivered by BrlAPI's raw mode.
 
 
-%package -n brltty-systemd
+%package braille-brlapi
 Version: @PACKAGE_VERSION@
 Release: 1
 Group: System Environment/Daemons
 License: LGPL
-BuildArch: noarch
 
 AutoProv: no
 AutoReq: yes
-Requires: systemd
 
-Summary: Systemd units and wrappers for BRLTTY.
-%description -n brltty-systemd
-This package provides the units and wrapper for managing BRLTTY via Systemd.
+Summary: BrlAPI braille driver for BRLTTY.
+%description braille-brlapi
+This package provides the BrlAPI braille driver for BRLTTY.
 
-Install this package if you'd like to manage BRLTTY processes via Systemd.
+Install this package if you need to communicate with
+another instance of BRLTTY which is actually in control
+of the braille device.
 
 
-%package -n brltty-udev
+%package braille-xwindow
 Version: @PACKAGE_VERSION@
 Release: 1
 Group: System Environment/Daemons
 License: LGPL
-BuildArch: noarch
+
+Requires: libX11
+
+BuildRequires: xorg-x11-proto-devel
+BuildRequires: libX11-devel
+BuildRequires: libXt-devel
+BuildRequires: Xaw3d-devel
 
 AutoProv: no
 AutoReq: yes
-Requires: systemd-udev
 
-Summary: BRLTTY Udev rules.
-%description -n brltty-udev
-This package provides the rules and the wrapper for managing BRLTTY via Udev.
+Summary: XWindow braille driver for BRLTTY.
+%description braille-xwindow
+This package provides the XWindow braille driver for BRLTTY.
+This driver presents a virtual braille device within a graphical
+user interface. It is primarily intended for sighted developers
+who don't have access to a real braille device but still wish to
+assess the accessibility of their applications.
 
-Install this package if you'd like to manage BRLTTY processes via Udev.
-It doesn't include the rules for braille devices that use generic USB to serial adapters.
+Install this package if you would like to see how usable an
+application would be by a blind person using a braille device.
 
 
-%package -n brltty-udev-generic
+%package speech-espeak
 Version: @PACKAGE_VERSION@
 Release: 1
 Group: System Environment/Daemons
 License: LGPL
-BuildArch: noarch
+
+Requires: espeak
+
+BuildRequires: espeak-devel
 
 AutoProv: no
 AutoReq: yes
-Requires: systemd-udev
 
-Summary: BRLTTY Udev rules for braille devices that use a generic USB to serial adapter.
-%description -n brltty-udev-generic
-This package provides additional rules for managing BRLTTY via Udev.
+Summary: eSpeak speech driver for BRLTTY.
+%description speech-espeak
+This package provides the eSpeak speech driver for BRLTTY.
 
-Install this package in order to support braille devices that use a generic USB to serial adapter.
+Install this package if you would like to be able to use the
+eSpeak text-to-speech engine.
 
 
-%package -n brltty-dracut
+%package speech-espeak-ng
 Version: @PACKAGE_VERSION@
 Release: 1
 Group: System Environment/Daemons
 License: LGPL
-BuildArch: noarch
+
+Requires: espeak-ng
+
+BuildRequires: espeak-ng-devel
 
 AutoProv: no
 AutoReq: yes
-Requires: dracut
-Requires: brltty-utils
 
-Summary: Dracut module for BRLTTY.
-%description -n brltty-dracut
-This package provides the module for adding BRLTTY to an initial ramdisk image.
+Summary: eSpeak-NG speech driver for BRLTTY.
+%description speech-espeak-ng
+This package provides the eSpeak-NG speech driver for BRLTTY.
 
-Install this package if you'd like to have braille accessibility BRLTTY processes via Udev.
+Install this package if you would like to be able to use the
+eSpeak-NG text-to-speech engine.
+
+
+%package speech-festival
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+
+Requires: festival
+
+AutoProv: no
+AutoReq: yes
+
+Summary: Festival speech driver for BRLTTY.
+%description speech-festival
+This package provides the Festival speech driver for BRLTTY.
+
+Install this package if you would like to be able to use the
+Festival text-to-speech engine.
+
+
+%package speech-flite
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+
+Requires: flite
+
+BuildRequires: flite-devel
+
+AutoProv: no
+AutoReq: yes
+
+Summary: Festival Lite speech driver for BRLTTY.
+%description speech-flite
+This package provides the Festival Lite speech driver for BRLTTY.
+
+Install this package if you would like to be able to use the
+Festival Lite text-to-speech engine.
+
+
+%package speech-speechd
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+
+Requires: speech-dispatcher
+
+BuildRequires: speech-dispatcher-devel
+
+AutoProv: no
+AutoReq: yes
+
+Summary: Speech Dispatcher speech driver for BRLTTY.
+%description speech-speechd
+This package provides the Speech Dispatcher speech driver for BRLTTY.
+
+Install this package if you would like to be able to use the
+Speech Dispatcher text-to-speech server.
+
+
+%package screen-atspi2
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+
+Requires: dbus-libs
+
+BuildRequires: at-spi2-core-devel
+BuildRequires: xorg-x11-proto-devel
+BuildRequires: dbus-devel
+
+AutoProv: no
+AutoReq: yes
+
+Summary: AT-SPI2 screen driver for BRLTTY.
+%description screen-atspi2
+This package provides the AT-SPI2 screen driver for BRLTTY.
+
+Install this package if you would like to be able to
+access graphical applications via the D-Bus port of
+the Assistive Technology Service Provider Interface.
+
+
+%package screen-screen
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+
+AutoProv: no
+AutoReq: yes
+Requires: screen
+
+Summary: Screen screen driver for BRLTTY.
+%description screen-screen
+This package provides the Screen screen driver for BRLTTY.
+
+Install this package if you would like to be able to
+directly access session windows maintained by the
+screen program.
 
 
 %package -n brlapi
@@ -572,6 +498,80 @@ Install this package if you have a Tcl application
 which directly accesses a refreshable braille display.
 
 
+%package systemd
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+BuildArch: noarch
+
+AutoProv: no
+AutoReq: yes
+Requires: systemd
+
+Summary: Systemd units and wrappers for BRLTTY.
+%description systemd
+This package provides the units and wrapper for managing BRLTTY via Systemd.
+
+Install this package if you'd like to manage BRLTTY processes via Systemd.
+
+
+%package udev
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+BuildArch: noarch
+
+AutoProv: no
+AutoReq: yes
+Requires: systemd-udev
+
+Summary: BRLTTY Udev rules.
+%description udev
+This package provides the rules and the wrapper for managing BRLTTY via Udev.
+
+Install this package if you'd like to manage BRLTTY processes via Udev.
+It doesn't include the rules for braille devices that use generic USB to serial adapters.
+
+
+%package udev-generic
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+BuildArch: noarch
+
+AutoProv: no
+AutoReq: yes
+Requires: systemd-udev
+
+Summary: BRLTTY Udev rules for braille devices that use a generic USB to serial adapter.
+%description udev-generic
+This package provides additional rules for managing BRLTTY via Udev.
+
+Install this package in order to support braille devices that use a generic USB to serial adapter.
+
+
+%package dracut
+Version: @PACKAGE_VERSION@
+Release: 1
+Group: System Environment/Daemons
+License: LGPL
+BuildArch: noarch
+
+AutoProv: no
+AutoReq: yes
+Requires: dracut
+Requires: brltty-utils
+
+Summary: Dracut module for BRLTTY.
+%description dracut
+This package provides the module for adding BRLTTY to an initial ramdisk image.
+
+Install this package if you'd like to have braille accessibility BRLTTY processes via Udev.
+
+
 %prep
 # %setup -n %{name}-%{version}
 %setup -n @PACKAGE_TARNAME@-@PACKAGE_VERSION@
@@ -633,57 +633,38 @@ rm -fr "${RPM_BUILD_ROOT}"
 %doc %{_docdir}/*/Manual-BRLTTY
 %config(noreplace) %verify(not size md5 mtime) %{_sysconfdir}/brltty.conf
 
-%files -n brltty-braille-brlapi
-%{_pkglibdir}/libbrlttybba.so
-
-%files -n brltty-braille-xwindow
-%{_pkglibdir}/libbrlttybxw.so
-
-%files -n brltty-speech-espeak
-%{_pkglibdir}/libbrlttyses.so
-
-%files -n brltty-speech-espeak-ng
-%{_pkglibdir}/libbrlttysen.so
-
-%files -n brltty-speech-festival
-%{_pkglibdir}/libbrlttysfv.so
-
-%files -n brltty-speech-flite
-%{_pkglibdir}/libbrlttysfl.so
-
-%files -n brltty-speech-speechd
-%{_pkglibdir}/libbrlttyssd.so
-
-%files -n brltty-screen-atspi2
-%{_pkglibdir}/libbrlttyxa2.so
-
-%files -n brltty-screen-screen
-%{_pkglibdir}/libbrlttyxsc.so
-
-%files -n brltty-utils
+%files utils
 %{_bindir}/brltty-*
 
-%files -n brltty-devel
+%files devel
 %{_includedir}/brltty
 
-%files -n brltty-systemd
-%{_unitdir}/*
-%{_sysusersdir}/*
-%{_tmpfilesdir}/*
-%{_pkglibexecdir}/systemd-*
+%files braille-brlapi
+%{_pkglibdir}/libbrlttybba.so
 
-%files -n brltty-udev
-%{_udevrulesdir}/*
-%exclude %{_udevrulesdir}/*-generic*
-%{_pkglibexecdir}/udev-*
+%files braille-xwindow
+%{_pkglibdir}/libbrlttybxw.so
 
-%files -n brltty-udev-generic
-%{_udevrulesdir}/*-generic*
+%files speech-espeak
+%{_pkglibdir}/libbrlttyses.so
 
-%files -n brltty-dracut
-/usr/lib/dracut/modules.d/99brltty
-%config(noreplace) %verify(not size md5 mtime) %{_sysconfdir}/brltty/Initramfs/dracut.conf
-%config(noreplace) %verify(not size md5 mtime) %{_sysconfdir}/brltty/Initramfs/cmdline
+%files speech-espeak-ng
+%{_pkglibdir}/libbrlttysen.so
+
+%files speech-festival
+%{_pkglibdir}/libbrlttysfv.so
+
+%files speech-flite
+%{_pkglibdir}/libbrlttysfl.so
+
+%files speech-speechd
+%{_pkglibdir}/libbrlttyssd.so
+
+%files screen-atspi2
+%{_pkglibdir}/libbrlttyxa2.so
+
+%files screen-screen
+%{_pkglibdir}/libbrlttyxsc.so
 
 %files -n brlapi
 %defattr(-,root,root)
@@ -720,97 +701,97 @@ rm -fr "${RPM_BUILD_ROOT}"
 %files -n ocaml-brlapi
 @OCAMLLIB@/brlapi
 
-%files -n python-brlapi
-@PYTHON_SITE_PKG@/[bB]rlapi[-.]*
+%files -n python-brlapi -f Bindings/Python/installed-files
 
 %files -n tcl-brlapi
 @TCL_DIR@/brlapi-@api_release@/libbrlapi_tcl.so
 @TCL_DIR@/brlapi-@api_release@/pkgIndex.tcl
 
+%files systemd
+%{_unitdir}/*
+%{_sysusersdir}/*
+%{_tmpfilesdir}/*
+%{_pkglibexecdir}/systemd-*
+
+%files udev
+%{_udevrulesdir}/*
+%exclude %{_udevrulesdir}/*-generic*
+%{_pkglibexecdir}/udev-*
+
+%files udev-generic
+%{_udevrulesdir}/*-generic*
+
+%files dracut
+/usr/lib/dracut/modules.d/99brltty
+%config(noreplace) %verify(not size md5 mtime) %{_sysconfdir}/brltty/Initramfs/dracut.conf
+%config(noreplace) %verify(not size md5 mtime) %{_sysconfdir}/brltty/Initramfs/cmdline
+
 
 %changelog
-* Sat Jul 22 2023 Dave Mielke <Dave@Mielke.cc> 6.6
+* Sat Jul 5 2025 Dave Mielke <Dave@Mielke.cc> 6.8
 General changes:
-   The -H (uppercase) option and the concept of hidden options have been removed.
-   For consistency (with -A, -B, -S, -X), the -z and -Z short options have been swapped:
-      -z is now --stay-privileged
-      -Z is now --privilege-parameters
-   Multi-line contracted braille is now supported.
-   The cursor style can now be set to no dots.
-   A rectangular append to the clipboard now ensures a leading newline.
-   README.CommandReference has been added.
+   The --helpers-directory (-H) command line option has been added.
+   The Learn Mode prompt now includes the number of seconds before it times out.
 Speech changes:
-   Speech can now be interrupted when writing new text to the input FIFO.
-   Autospeak now provides correct character highlighting to the speech driver.
-   A word is now a whitespace-delimited (rather than an alphanumeric) sequence of characters.
-   Word completion for single-character words now works correctly.
-   The ROUTE_SPEECH command (go to the speech cursor) has been added.
-   The DESC_CURR_CHAR command now speaks phonetically.
+   The "most" punctuation level has been added (in between "some", and "all").
+   The SPK_PUNCT_LEVEL command has been added (cycles through all four levels).
+Message changes:
+   Message content can now be copied to the clipboard.
+   Messages are now rendered in contracted braille when that's being used.
+   Messages now honour the Word Wrap setting (when using computer braille).
+Pasting clipboard content:
+   The PASTE_ALTMODE and PASTE_HISTORY_ALTMODE commands have been added.
+   PASTE_ALTMODE has been bound to a long-press of the key combination for PASTE.
 Preferences Menu changes:
-   The PREFRESET command has been added.
-   Space + p + Dots 7-8 is bound to the new PREFRESET command.
-   If the preferences file can't be found then try loading /etc/brltty/default.prefs.
-   Save on Exit now also saves the preferences on program termination.
-   The Speak Key Context preference has been added.
-   The Speak Modifier Key preference has been added.
-Baum braille driver changes:
-   More recent Orbit Reader models have routing keys.
+   The preferences file can no longer be lost during a reboot or shutdown.
+   Alternate Paste Mode Enabled has been added to the Input Options submenu.
+   The Command Options (advanced) submenu has been added.
 BrlAPI braille driver changes:
-   The speechChanges (no, yes) parameter has been added.
-CombiBraille braille driver changes:
-   Upgraded to use generic (rather than direct serial) I/O.
-   The routing keys are now supported.
-DotPad braille driver:
-   New - its two-letter driver code is dp.
-   A multi-line text display is supported within its graphic area.
-Freedom Scientific braille driver changes:
-   Minor Focus key binding changes:
-      LeftShift + RoutingKey -> SETLEFT
-      RightShift + RoutingKey -> SWITCHVT
-      LeftSelector + NavrowKey -> PRDIFCHAR
-      RightSelector + NavrowKey -> NXDIFCHAR
+   The correct BrlAPI client priority is now being set.
+DotPad braille driver changes:
+   These driver properties have been defined (prefix is DP_PROP_):
+      DISPLAY: can be set to TEXT or GRAPHIC (prefix is DP_DISPLAY_)
+      STATUS_CELLS: can be set to 0 (no) or 1 (status cells in text area)
+      HORIZONTAL_SPACING: number of dot columns between cells (default is 1)
+      VERTICAL_SPACING: number of dot rows between lines (default is 2)
+   These can be changed at run-time via BRLAPI_PARAM_DRIVER_PROPERTY_VALUE.
+   The driver's README contains this list along with examples.
 HandyTech braille driver changes:
-   Bluetooth service discovery now needs to be performed (for newer models).
-External Speech speech driver changes:
-   The volume and pitch can now be set.
-   Now disconnects from the server when a write error or timeout occurs.
-   Now tries to reconnect to the server if disconnected.
-   Now correctly handles the receipt of tracking data.
-AtSpi2 screen driver changes:
-   A potential crash on receipt of a cursor routing request has been resolved.
-File Viewer screen driver:
-   New. Its two-letter driver code is fv.
-   A virtual screen presents the specified file (via its file parameter).
-   The height of the screen is the number of lines within the file.
-   The width of the screen is the length of the file's longest line.
+   Input mode on an Activator Pro model can now be toggled with Space + dots 7-8.
+ExternalSpeech speech driver changes:
+   The current settings are now sent to the server on each connect or reconnect.
+SpeechDispatcher speech driver changes:
+   The Address= parameter has been added.
+   The Autospawn= parameter has been added.
+   The Port= parameter has been removed (use Address= instead).
 Linux screen driver changes:
-   A message is shown on the braille display if character injection (TIOCSTI) is disabled.
-Terminal Emulator screen driver:
-   New. Its two-letter driver code is em.
-   It monitors a shared memory segment maintained by a terminal emulator
-   for screen content and size, cursor position, etc.
-   It uses a message queue to know when the segment has been updated
-   and to send input typed on the braille device to the terminal emulator.
-   BRLTTY's provided terminal emulator is the new brltty-pty command (in libexec/brltty/).
-   The new brltty-term command runs a shell or terminal manager via brltty-pty,
-   and also runs BRLTTY with its Terminal Emulator screen driver to interact with it.
+   Automatically detect if a paste should be bracketed (starting with kernel 6.16).
+   A screen with more than 255 columns and/or lines is now rendered properly
+   (although, if the kernel is earlier than 6.16, the cursor isn't shown when
+   its position is beyond column and/or line 255).
+   The LargeScreenBug= parameter (defaults to No) has been added
+   (might be needed if the kernel is earlier than 5.1).
+   The handling of foreground console switching has been improved.
+AtSpi2 screen driver changes:
+   Widgets which don't have a text interface are now ignored.
+   The handling of double-width and zero-width characters has been improved.
 BrlAPI changes:
-   The version is now 0.8.5 (it was 0.8.4).
-   Fuzzing support has been added to the server (see README.APIFuzzing).
-   Various fuzzer-detected issues have been resolved.
-Contraction tables:
-   The en-ueb-g1 (English, Unified, Grade 1) contraction table has been added.
-Key tables:
-   A possible stack overflow during table compilation has been resolved.
-   The run directive has been added.
-   The macro directive has been added.
-   The isolated directive has been added.
-   The ktbcheck tool has been added.
-Windows changes:
-   The batch scripts have been improved.
-   The tasks-brltty.bat script has been added.
-   The regquery-brlapi.bat script has been added.
-   The build now includes the Debug\ directory, which contains:
-      The build's config.h, config.mk, and config.log files.
-      Unstripped executables (.exe) and libraries (.dll).
+   The version is now 0.8.7 (it was 0.8.6).
+   Driver properties are now changed on the core's (not the client's) thread.
+   The handling of braille display size changes has been improved.
+Text table changes:
+   The he_IL (Hebrew, Israel) table has been added - it can be used to read
+      Hebrew, Arabic, Russian, English, and some western european languages.
+   The he (Hebrew, generic) table is now an alias for the (new) he_IL table.
+   The older he (Hebrew, generic) table is still (for now) available as he-old.
+   The pt (Portuguese) table has been improved.
+   Support for Esperanto and Greek has been added to the pt (Portuguese) table.
+Contraction table changes:
+   The de-2015 (German) table has been improved.
+   The de-1998 (German) table is deprecated and will be removed soon.
+TCL build changes:
+   The TCL-8.6.15 change to the format of TCL_PACKAGE_PATH is now supported.
+   Building against TCL-9.0 is now supported.
+Android build changes:
+   The crash on startup when using Android 14 (or later) has been fixed.
 

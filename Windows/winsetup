@@ -3,7 +3,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -48,6 +48,7 @@ findCommand() {
    local variable="${1}"
    shift 1
 
+   local name
    for name
    do
       local path="$(command -v "${name}")"
@@ -249,7 +250,7 @@ installLibUSB1() {
    installWindowsArchive winusb.zip "${windowsDirectory}/WinUSB"
 }
 
-installCython() {
+installPythonDependencies() {
    local python
 
    if findCommand python python py
@@ -262,9 +263,18 @@ installCython() {
          "${dryRun}" || executeCommand pip -q install cython
       }
 
-      installFile Cython/vcruntime140.dll "${directory}/libs"
-      installFile Cython/distutils.cfg "${directory}/lib/distutils"
-      applyPatch "Cython/PythonCygwinCCompiler.patch" "${directory}/lib/distutils" "cygwinccompiler.py" "vcruntime140"
+    # Keep these in case any of them is still needed.
+    # installFile Cython/vcruntime140.dll "${directory}/libs"
+    # installFile Cython/distutils.cfg "${directory}/lib/distutils"
+    # applyPatch "Cython/PythonCygwinCCompiler.patch" "${directory}/lib/distutils" "cygwinccompiler.py" "vcruntime140"
+
+      findCommand wheel wheel || {
+         logMessage task "installing Wheel"
+         "${dryRun}" || executeCommand pip -q install wheel
+      }
+
+      logMessage task "ensuring Setuptools is up to date"
+      "${dryRun}" || executeCommand pip -q install --upgrade setuptools
    else
       logWarning "Python not found"
    fi
@@ -273,15 +283,15 @@ installCython() {
 addProgramOption a string.URL archiveRoot "the URL for BRLTTY's Windows archive" "${defaultArchiveRoot}"
 addProgramOption d flag dryRun "dry run - don't actually install anything"
 addProgramOption k flag keepFiles "keep (do not remove) the temporary directory"
-addProgramOption p string.directory pythonDirectory "the directory where Python has been installed"
+addProgramOption p string.directory pythonRoot "the directory where Python has been installed"
 addProgramOption t string.directory temporaryDirectory "the temporary directory to use" "${defaultTemporaryDirectory}"
 parseProgramArguments "${@}"
 
 [ -n "${archiveRoot}" ] || archiveRoot="${defaultArchiveRoot}"
 
-[ -n "${pythonDirectory}" ] && {
-   [ -d "${pythonDirectory}" ] || semanticError "Python directory not found: ${pythonDirectory}"
-   PATH="${pythonDirectory}:${pythonDirectory}/scripts:${PATH}"
+getPythonLocation pythonRoot && {
+   [ -d "${pythonRoot}" ] || semanticError "Python directory not found: ${pythonRoot}"
+   export PATH="${pythonRoot}:${pythonRoot}/scripts:${PATH}"
 }
 
 readonly windowsDirectory="/c"
@@ -338,7 +348,7 @@ installWindowsArchive icu4c-53_1-Win32-msvc10.zip "${icuLocation}"
 
 installLibUSB0
 installLibUSB1
-installCython
+installPythonDependencies
 
 "${keepFiles}" || {
    logMessage task "cleaning up"

@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -39,7 +39,7 @@ bind KP0+!KPEnter HOME
 bind KP0+!KPDivide CLIP_NEW
 bind KP0+!KPMultiply COPY_LINE
 bind KP0+!KPMinus COPY_RECT
-bind KP0+!KPPlus PASTE
+bind KP0+KPPlus PASTE:PASTE_ALTMODE
 bind ControlLeft+KP0+!KPPlus CLIP_ADD
 bind ControlLeft+ShiftLeft+KP0+!KP2 PREFMENU
 bind ControlLeft+ShiftLeft+KP0+!KP4 PREFLOAD

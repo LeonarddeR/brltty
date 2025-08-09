@@ -1,7 +1,7 @@
 /*
  * libbrlapi - A library providing access to braille terminals for applications.
  *
- * Copyright (C) 2006-2023 by
+ * Copyright (C) 2006-2025 by
  *   Samuel Thibault <Samuel.Thibault@ens-lyon.org>
  *   Sébastien Hinderer <Sebastien.Hinderer@ens-lyon.org>
  *
@@ -35,13 +35,13 @@ public class CursorDotsParameter extends GlobalParameter implements Parameter.St
     return asByte(getValue());
   }
 
-  public final void set (byte dots) {
-    setValue(new byte[] {dots});
+  public final void set (long subparam, byte dots) {
+    setValue(subparam, new byte[] {dots});
   }
 
   @Override
-  public final void set (String numbers) throws SyntaxException {
-    set(Parse.asDots(getParseDescription(), numbers));
+  public final void set (long subparam, String numbers) throws SyntaxException {
+    set(subparam, Parse.asDots(getParseDescription(), numbers));
   }
 
   @Override

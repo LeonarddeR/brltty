@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -27,6 +27,7 @@
 #include "strfmt.h"
 #include "program.h"
 #include "cmdline.h"
+#include "options.h"
 #include "file.h"
 #include "get_select.h"
 #include "brl_dots.h"
@@ -134,7 +135,7 @@ showUndefinedCharacters (TextTableData *ttd) {
 static char *opt_charset;
 static char *opt_inputFormat;
 static char *opt_outputFormat;
-static char *opt_tablesDirectory;
+char *opt_tablesDirectory;
 static int opt_edit;
 
 #ifdef HAVE_UNDEFINED_CHARACTERS_SUPPORT
@@ -182,7 +183,7 @@ BEGIN_OPTION_TABLE(programOptions)
     .argument = "directory",
     .setting.string = &opt_tablesDirectory,
     .internal.setting = TABLES_DIRECTORY,
-    .internal.adjust = fixInstallPath,
+    .internal.adjust = toAbsoluteInstallPath,
     .description = strtext("Path to directory containing text tables.")
   },
 END_OPTION_TABLE(programOptions)

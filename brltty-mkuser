@@ -1,9 +1,9 @@
-#!/bin/sh
+#!/bin/bash
 ###############################################################################
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -38,7 +38,7 @@ readonly defaultLoginShell="/sbin/nologin"
 showProgramUsageNotes() {
 cat <<END_OF_PROGRAM_USAGE_NOTES
 When creating a new user, these options have the following defaults:
-  -d  ${defaultHomeDirectory:-the home directory isn't defined}
+  -d  ${defaultHomeDirectory:-the home directory is not defined}
   -g  a new group with the same name as the user
   -i  ${defaultUserInformation}
   -l  ${defaultLoginShell}
@@ -66,6 +66,7 @@ addGroups() {
       [ -n "${group}" ] || continue
 
       [ "${group#*/}" = "${group}" ] || {
+         [ -e "${group}" ] || continue
          group="$(stat -c "%G" "${group}")" || :
          [ -n "${group}" ] || continue
       }
@@ -120,7 +121,18 @@ else
    [ -n "${homeDirectory}" ] || homeDirectory="${defaultHomeDirectory}"
    [ -n "${loginShell}" ] || loginShell="${defaultLoginShell}"
 
-   if [ -n "${homeDirectory}" ]
+   if [ -z "${homeDirectory}" ]
+   then
+      createHomeDirectory=false
+   elif [ -e "${homeDirectory}" ]
+   then
+      [ -d "${homeDirectory}" ] || semanticError "not a directory: ${homeDirectory}"
+      createHomeDirectory=false
+   else
+      createHomeDirectory=true
+   fi
+
+   if "${createHomeDirectory}"
    then
       command+=(--create-home)
    else

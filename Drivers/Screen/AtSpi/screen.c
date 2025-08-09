@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -629,7 +629,7 @@ insertKey_AtSpiScreen (ScreenKey key) {
 
   if (isSpecialKey(key)) {
     switch (key & SCR_KEY_CHAR_MASK) {
-      case SCR_KEY_ENTER:         keysym = XK_KP_Enter;  break;
+      case SCR_KEY_ENTER:         keysym = XK_Return;    break;
       case SCR_KEY_TAB:           keysym = XK_Tab;       break;
       case SCR_KEY_BACKSPACE:     keysym = XK_BackSpace; break;
       case SCR_KEY_ESCAPE:        keysym = XK_Escape;    break;

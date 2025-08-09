@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -766,7 +766,7 @@ cldr.$O:
 ###############################################################################
 
 rgx.$O:
-	$(CC) $(LIBCFLAGS) -c $(SRC_DIR)/rgx.c
+	$(CC) $(LIBCFLAGS) $(RGX_INCLUDES) -c $(SRC_DIR)/rgx.c
 
 $(RGX_OBJECT).$O:
 	$(CC) $(LIBCFLAGS) $(RGX_INCLUDES) -c $(SRC_DIR)/$(RGX_OBJECT).c
@@ -1166,8 +1166,8 @@ install-commands: all-commands install-program-directories $(INSTALL_BRLTTY_PTY)
 	$(INSTALL_PROGRAM) brltty-lscmds$X $(INSTALL_PROGRAM_DIRECTORY) 
 	$(INSTALL_PROGRAM) brltty-hid$X $(INSTALL_PROGRAM_DIRECTORY) 
 
-install-brltty-pty: install-commands-directory
-	$(INSTALL_PROGRAM) brltty-pty$X $(INSTALL_COMMANDS_DIRECTORY) 
+install-brltty-pty: install-helpers-directory
+	$(INSTALL_PROGRAM) brltty-pty$X $(INSTALL_HELPERS_DIRECTORY) 
 
 install-tools: all-tools install-program-directories
 	$(INSTALL_PROGRAM) brltty-cldr$X $(INSTALL_PROGRAM_DIRECTORY) 
@@ -1183,7 +1183,7 @@ install-tools: all-tools install-program-directories
 XBRLAPI_X11_AUTOSTART_FILE = 90xbrlapi
 XBRLAPI_GDM_AUTOSTART_FILE = xbrlapi.desktop
 
-install-xbrlapi: xbrlapi$X install-program-directory install-x11-autostart-directory install-gdm-autostart-directory
+install-xbrlapi: xbrlapi$X install-program-directory install-man1-directory install-x11-autostart-directory install-gdm-autostart-directory
 	$(INSTALL_PROGRAM) xbrlapi$X $(INSTALL_PROGRAM_DIRECTORY) 
 	$(INSTALL_DATA) $(BLD_TOP)$(DOC_DIR)/xbrlapi.1 $(INSTALL_MAN1_DIRECTORY)
 	$(INSTALL_DATA) $(BLD_TOP)Autostart/X11/$(XBRLAPI_X11_AUTOSTART_FILE) $(INSTALL_X11_AUTOSTART_DIRECTORY)
@@ -1280,7 +1280,7 @@ install-api-key:
 	if test ! -f $$file -a -w $(sysconfdir) -a -z "$(INSTALL_ROOT)"; \
 	then $(SRC_TOP)brltty-genkey -f $$file; fi
 
-install-api-commands: all-brltty-clip
+install-api-commands: all-brltty-clip install-program-directory
 	$(INSTALL_PROGRAM) brltty-clip$X $(INSTALL_PROGRAM_DIRECTORY) 
 
 ###############################################################################
@@ -1290,7 +1290,7 @@ uninstall:: uninstall-programs uninstall-tables uninstall-drivers uninstall-mess
 uninstall-programs:
 	-rm -f $(INSTALL_PROGRAM_DIRECTORY)/brltty$X
 	-rm -f $(INSTALL_PROGRAM_DIRECTORY)/brltty-*
-	-rm -f $(INSTALL_COMMANDS_DIRECTORY)/brltty-*
+	-rm -f $(INSTALL_HELPERS_DIRECTORY)/brltty-*
 	-rm -f $(INSTALL_PROGRAM_DIRECTORY)/xbrlapi$X
 	-rm -f $(INSTALL_X11_AUTOSTART_DIRECTORY)/$(XBRLAPI_X11_AUTOSTART_FILE)
 	-rm -f $(INSTALL_GDM_AUTOSTART_DIRECTORY)/$(XBRLAPI_GDM_AUTOSTART_FILE)

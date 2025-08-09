@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -102,7 +102,8 @@ typedef struct {
 #define SCR_KEY_ALT_LEFT  0X08000000
 #define SCR_KEY_ALT_RIGHT 0X04000000
 #define SCR_KEY_GUI       0X02000000
-#define SCR_KEY_CHAR_MASK 0X00FFFFFF
+#define SCR_KEY_CAPSLOCK  0X01000000
+#define SCR_KEY_CHAR_MASK 0X000FFFFF
 
 #define SCR_KEY_UNICODE_ROW 0XF800
 
@@ -156,6 +157,12 @@ isSpecialKey (ScreenKey key) {
 
 /* must be less than 0 */
 #define SCR_NO_VT -1
+
+typedef enum {
+  SPM_UNKNOWN,
+  SPM_PLAIN,
+  SPM_BRACKETED,
+} ScreenPasteMode;
 
 typedef struct ScreenDriverStruct ScreenDriver;
 

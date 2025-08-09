@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -20,10 +20,11 @@
 
 #include "program.h"
 #include "cmdline.h"
+#include "options.h"
 #include "log.h"
 #include "atb.h"
 
-static char *opt_tablesDirectory;
+char *opt_tablesDirectory;
 
 BEGIN_OPTION_TABLE(programOptions)
   { .word = "tables-directory",
@@ -31,7 +32,7 @@ BEGIN_OPTION_TABLE(programOptions)
     .argument = strtext("directory"),
     .setting.string = &opt_tablesDirectory,
     .internal.setting = TABLES_DIRECTORY,
-    .internal.adjust = fixInstallPath,
+    .internal.adjust = toAbsoluteInstallPath,
     .description = strtext("Path to directory containing tables.")
   },
 END_OPTION_TABLE(programOptions)

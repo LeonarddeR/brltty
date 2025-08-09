@@ -3,7 +3,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -106,7 +106,7 @@ prepareArchitecture() {
 }
 
 logMessage task "preparing ABI build trees"
-prepareArchitecture arm arm-linux-androideabi armeabi-v7a "-mthumb" "-Wl,--fix-cortex-a8"
+prepareArchitecture arm arm-linux-androideabi armeabi-v7a "-mthumb"
 prepareArchitecture arm64 aarch64-linux-android arm64-v8a
 prepareArchitecture x86 i686-linux-android x86
 prepareArchitecture x86_64 x86_64-linux-android x86_64

@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -63,6 +63,9 @@ typedef int SetBrailleFirmnessMethod (BrailleDisplay *brl, BrailleFirmness setti
 typedef int SetTouchSensitivityMethod (BrailleDisplay *brl, TouchSensitivity setting);
 typedef int SetAutorepeatPropertiesMethod (BrailleDisplay *brl, int on, int delay, int interval);
 
+typedef int GetDriverPropertyMethod (BrailleDisplay *brl, uint64_t property, uint64_t *value);
+typedef int SetDriverPropertyMethod (BrailleDisplay *brl, uint64_t property, uint64_t value);
+
 typedef struct {
   struct {
     ContractionCache cache;
@@ -84,6 +87,9 @@ struct BrailleDisplayStruct {
   SetBrailleFirmnessMethod *setBrailleFirmness;
   SetTouchSensitivityMethod *setTouchSensitivity;
   SetAutorepeatPropertiesMethod *setAutorepeatProperties;
+
+  GetDriverPropertyMethod *getDriverProperty;
+  SetDriverPropertyMethod *setDriverProperty;
 
   unsigned int textColumns;
   unsigned int textRows;

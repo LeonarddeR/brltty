@@ -24,8 +24,18 @@ Map getABI (Map properties) {
   return getABI(properties.ABI)
 }
 
+brltty.addConsumerTask = { Task producerTask, String consumerName ->
+  gradle.projectsEvaluated {
+    def consumerTask = producerTask.project.tasks.findByName(consumerName)
+
+    if (consumerTask != null) {
+      consumerTask.mustRunAfter producerTask
+    }
+  }
+}
+
 Task newTask (Project project, String name, Class<DefaultTask> type=DefaultTask, Closure closure) {
-  Task task = project.tasks.register(name, type, closure).get()
+  def task = project.tasks.register(name, type, closure).get()
 
   task.configure {
     group "build"
@@ -93,7 +103,7 @@ Task newMakeComponentsTask (Map properties) {
 }
 
 Task newAddJarsTask (Map properties) {
-  return newTask(properties, "brlttyAddJars", Copy) {
+  def task = newTask(properties, "brlttyAddJars", Copy) {
     description "Add the ${properties.componentName}'s ${properties.ABI} jars to the build."
     dependsOn properties.makeComponentsTask
     into getJarsPath(properties)
@@ -106,10 +116,15 @@ Task newAddJarsTask (Map properties) {
       include "${jar}.jar"
     }
   }
+
+  brltty.addConsumerTask(task, "mergeDebugJavaResource")
+  brltty.addConsumerTask(task, "copyDebugJniLibsProjectAndLocalJars")
+
+  return task
 }
 
 Task newAddLibrariesTask (Map properties) {
-  return newTask(properties, "brlttyAddLibraries", Copy) {
+  def task = newTask(properties, "brlttyAddLibraries", Copy) {
     description "Add the ${properties.componentName}'s ${properties.ABI} libraries to the build."
     dependsOn properties.makeComponentsTask
     into getABIPath(properties)
@@ -122,6 +137,11 @@ Task newAddLibrariesTask (Map properties) {
       include "lib${library}.so"
     }
   }
+
+  brltty.addConsumerTask(task, "mergeDebugJniLibFolders")
+  brltty.addConsumerTask(task, "mergeReleaseJniLibFolders")
+
+  return task
 }
 
 Task newMakeCleanTask (Map properties) {
@@ -205,7 +225,7 @@ brltty.addAssembleTask = { Project project, Task assembleTask ->
   }
 }
 
-brltty.addTasks = { Map properties ->
+brltty.buildComponent = { Map properties ->
   addTasks(properties)
   brltty.addAssembleTask(properties.project, properties.assembleTask)
   clean.dependsOn properties.cleanTask

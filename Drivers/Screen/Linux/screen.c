@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -25,6 +25,7 @@
 #include <fcntl.h>
 #include <sys/stat.h>
 #include <sys/ioctl.h>
+#include <sys/sysmacros.h>
 #include <linux/tty.h>
 #include <linux/vt.h>
 #include <linux/kd.h>
@@ -34,6 +35,25 @@
 #ifndef VT_GETHIFONTMASK
 #define VT_GETHIFONTMASK 0X560D
 #endif /* VT_GETHIFONTMASK */
+
+#ifndef VT_GETCONSIZECSRPOS
+#define VT_GETCONSIZECSRPOS    _IOR('V', 0x10, struct vt_consizecsrpos)
+
+struct vt_consizecsrpos {
+  __u16 con_rows;
+  __u16 con_cols;
+  __u16 csr_row;
+  __u16 csr_col;
+};
+#endif /* VT_GETCONSIZECSRPOS */
+
+#ifndef TIOCL_GETFGCONSOLE
+#define TIOCL_GETFGCONSOLE 16
+#endif /* TIOCL_GETFGCONSOLE */
+
+#ifndef TIOCL_GETBRACKETEDPASTE
+#define TIOCL_GETBRACKETEDPASTE 18
+#endif /* TIOCL_GETBRACKETEDPASTE */
 
 #include "log.h"
 #include "report.h"
@@ -56,24 +76,39 @@ typedef enum {
   PARM_CHARSET,
   PARM_FALLBACK_TEXT,
   PARM_HIGH_FONT_BIT,
+  PARM_LARGE_SCREEN_BUG,
   PARM_LOG_SCREEN_FONT_MAP,
   PARM_RPI_SPACES_BUG,
   PARM_UNICODE,
   PARM_VIRTUAL_TERMINAL_NUMBER,
   PARM_WIDECHAR_PADDING,
 } ScreenParameters;
-#define SCRPARMS "charset", "fallbacktext", "hfb", "logsfm", "rpispacesbug", "unicode", "vt", "widecharpadding"
+#define SCRPARMS "charset", "fallbacktext", "hfb", "largescreenbug", "logsfm", "rpispacesbug", "unicode", "vt", "widecharpadding"
 
 #include "scr_driver.h"
 #include "screen.h"
 
+static void
+logKernelLimitation (unsigned char *alreadyLogged, int major, int minor, const char *message) {
+  if (alreadyLogged) {
+    if (*alreadyLogged) return;
+    *alreadyLogged = 1;
+  }
+
+  logMessage(LOG_WARNING,
+    "pre-%d.%d kernel limitation: %s",
+    major, minor, message
+  );
+}
+
 static const char *problemText;
 static const char *fallbackText;
 
+static unsigned int largeScreenBug;
 static unsigned int logScreenFontMap;
 static unsigned int rpiSpacesBug;
 static unsigned int unicodeEnabled;
-static int virtualTerminalNumber;
+static int selectedVirtualTerminal;
 static unsigned int widecharPadding;
 
 #define UNICODE_ROW_DIRECT 0XF000
@@ -327,13 +362,72 @@ convertCharacter (const wchar_t *character) {
   return WEOF;
 }
 
+static void
+logTruncatedData (size_t expected, size_t actual, const char *type) {
+  logMessage(LOG_ERR,
+    "truncated %s data: expected %"PRIsize " bytes but only read %"PRIsize,
+    type, expected, actual
+  );
+}
+
+static void
+logUnexpectedSize (size_t expected, size_t actual, const char *type) {
+  logMessage(LOG_WARNING,
+    "%s %s read: expected %"PRIsize " bytes but read %"PRIsize,
+    (actual < expected)? "short": "long",
+    type, expected, actual
+  );
+}
+
 static int
-setDeviceName (const char **name, const char *const *names, int strict, const char *description) {
-  return (*name = resolveDeviceName(names, strict, description)) != NULL;
+extendCacheBuffer (void **buffer, size_t *size, size_t newSize, const char *type) {
+  logMessage(LOG_CATEGORY(SCREEN_DRIVER),
+    "extending %s buffer: %"PRIsize " -> %"PRIsize,
+    type, *size, newSize
+  );
+
+  void *newBuffer = malloc(newSize);
+
+  if (!newBuffer) {
+    logMallocError();
+    return 0;
+  }
+
+  if (*buffer) free(*buffer);
+  *buffer = newBuffer;
+  *size = newSize;
+
+  return 1;
+}
+
+static size_t
+readCache (
+  off_t offset, void *buffer, size_t size,
+  const unsigned char *cache, size_t used, const char *type
+) {
+  if (offset > used) {
+    logMessage(LOG_ERR,
+      "invalid %s cache offset: %"PRIsize " > %"PRIsize,
+      type, offset, used
+    );
+  } else {
+    size_t left = used - offset;
+    if (size > left) size = left;
+
+    memcpy(buffer, &cache[offset], size);
+    return size;
+  }
+
+  return 0;
+}
+
+static int
+setDeviceName (const char **name, const char *const *names, int strict, const char *type) {
+  return (*name = resolveDeviceName(names, strict, type)) != NULL;
 }
 
 static char *
-vtName (const char *name, unsigned char vt) {
+vtName (const char *name, int vt) {
   char *string;
 
   if (vt) {
@@ -341,7 +435,7 @@ vtName (const char *name, unsigned char vt) {
     if (name[length-1] == '0') length -= 1;
 
     char buffer[length+4];
-    snprintf(buffer, sizeof(buffer), "%.*s%u", length, name, vt);
+    snprintf(buffer, sizeof(buffer), "%.*s%d", length, name, vt);
 
     string = strdup(buffer);
   } else {
@@ -361,16 +455,20 @@ setConsoleName (void) {
 }
 
 static void
-closeConsole (int *fd) {
+closeConsole (int *fd, const char *type) {
   if (*fd != -1) {
-    logMessage(LOG_CATEGORY(SCREEN_DRIVER), "closing console: fd=%d", *fd);
+    logMessage(LOG_CATEGORY(SCREEN_DRIVER),
+      "closing %s console: fd=%d",
+      type, *fd
+    );
+
     if (close(*fd) == -1) logSystemError("close[console]");
     *fd = -1;
   }
 }
 
 static int
-openConsole (int *fd, int vt) {
+openConsole (int *fd, int vt, const char *type) {
   int opened = 0;
   char *name = vtName(consoleName, vt);
 
@@ -379,9 +477,11 @@ openConsole (int *fd, int vt) {
 
     if (console != -1) {
       logMessage(LOG_CATEGORY(SCREEN_DRIVER),
-                 "console opened: %s: fd=%d", name, console);
+        "%s console opened: %s: fd=%d",
+        type, name, console
+      );
 
-      closeConsole(fd);
+      closeConsole(fd, type);
       *fd = console;
       opened = 1;
     }
@@ -393,7 +493,7 @@ openConsole (int *fd, int vt) {
 }
 
 static int
-controlConsole (int *fd, int vt, int operation, void *argument) {
+controlConsole (int *fd, int vt, const char *type, int operation, void *argument) {
   int result = ioctl(*fd, operation, argument);
 
   if (result == -1) {
@@ -402,7 +502,7 @@ controlConsole (int *fd, int vt, int operation, void *argument) {
                  "console control error %d: fd=%d vt=%d op=0X%04X: %s",
                  errno, *fd, vt, operation, strerror(errno));
 
-      if (openConsole(fd, vt)) {
+      if (openConsole(fd, vt, type)) {
         result = ioctl(*fd, operation, argument);
       }
     }
@@ -411,22 +511,72 @@ controlConsole (int *fd, int vt, int operation, void *argument) {
   return result;
 }
 
-static int consoleDescriptor;
+static const char mainConsoleType[] = "main";
+static int mainConsoleDescriptor;
+
+static const int NO_CONSOLE = 0;
+static const int MAIN_CONSOLE = 0;
 
 static void
-closeCurrentConsole (void) {
-  closeConsole(&consoleDescriptor);
+closeMainConsole (void) {
+  closeConsole(&mainConsoleDescriptor, mainConsoleType);
 }
 
 static int
-openCurrentConsole (void) {
-  return openConsole(&consoleDescriptor, virtualTerminalNumber);
+openMainConsole (void) {
+  return openConsole(&mainConsoleDescriptor, MAIN_CONSOLE, mainConsoleType);
+}
+
+static int
+controlMainConsole (int operation, void *argument) {
+  return controlConsole(&mainConsoleDescriptor, MAIN_CONSOLE, mainConsoleType, operation, argument);
+}
+
+static int
+getConsoleState (struct vt_stat *state) {
+  if (controlMainConsole(VT_GETSTATE, state) != -1) return 1;
+  logSystemError("ioctl[VT_GETSTATE]");
+  return 0;
+}
+
+static int
+getForegroundConsoleNumber (int *vt) {
+  {
+    unsigned char subcode = TIOCL_GETFGCONSOLE;
+    int result = controlMainConsole(TIOCLINUX, &subcode);
+
+    if (result != -1) {
+      *vt = result + 1;
+      return 1;
+    } else {
+      logSystemError("ioctl[TIOCLINUX(TIOCL_GETFGCONSOLE)]");
+    }
+  }
+
+  {
+    struct vt_stat state;
+
+    if (getConsoleState(&state)) {
+      *vt = state.v_active;
+      return 1;
+    }
+  }
+
+  return 0;
+}
+
+static const char currentConsoleType[] = "current";
+static int currentConsoleDescriptor;
+
+static inline int
+isCurrentConsoleOpen (void) {
+  return currentConsoleDescriptor != -1;
 }
 
 static int
 controlCurrentConsole (int operation, void *argument) {
-  if (consoleDescriptor != -1) {
-    return controlConsole(&consoleDescriptor, virtualTerminalNumber, operation, argument);
+  if (isCurrentConsoleOpen()) {
+    return controlConsole(&currentConsoleDescriptor, selectedVirtualTerminal, currentConsoleType, operation, argument);
   }
 
   switch (operation) {
@@ -467,39 +617,82 @@ controlCurrentConsole (int operation, void *argument) {
       break;
   }
 
+  logMessage(LOG_WARNING, "current console not open");
   errno = EAGAIN;
   return -1;
 }
 
-static const int NO_CONSOLE = 0;
-static const int MAIN_CONSOLE = 0;
-static int mainConsoleDescriptor;
-
 static void
-closeMainConsole (void) {
-  closeConsole(&mainConsoleDescriptor);
+closeCurrentConsole (void) {
+  closeConsole(&currentConsoleDescriptor, currentConsoleType);
 }
 
 static int
-openMainConsole (void) {
-  return openConsole(&mainConsoleDescriptor, MAIN_CONSOLE);
+openCurrentConsole (int *vt) {
+  if (openConsole(&currentConsoleDescriptor, selectedVirtualTerminal, currentConsoleType)) {
+    if (selectedVirtualTerminal) return 1;
+    unsigned int device;
+
+    if (controlCurrentConsole(TIOCGDEV, &device) != -1) {
+      unsigned int ttyNumber = minor(device);
+
+      {
+        const unsigned int expected = TTY_MAJOR;
+        unsigned int actual = major(device);
+
+        if (actual != expected) {
+          logMessage(LOG_WARNING,
+            "unexpected foreground tty device type (expected %u, got %u)",
+            expected, actual
+          );
+
+          return 0;
+        }
+      }
+
+      {
+        const unsigned int ttyNumberMask = 0X3F;
+
+        if ((ttyNumber & ttyNumberMask) != ttyNumber) {
+          logMessage(LOG_WARNING,
+            "unexpected foreground tty device group (expected %d, got %u)",
+            *vt, ttyNumber
+          );
+
+          return 0;
+        }
+      }
+
+      if (ttyNumber != *vt) {
+        logMessage(LOG_WARNING,
+          "unexpected foreground tty number (expecting %d, got %u) - assuming VT switch",
+          *vt, ttyNumber
+        );
+
+        *vt = ttyNumber;
+      }
+
+      return 1;
+    } else {
+      logSystemError("ioctl[TIOCGDEV]");
+    }
+  }
+
+  return 0;
 }
 
-static int
-controlMainConsole (int operation, void *argument) {
-  return controlConsole(&mainConsoleDescriptor, MAIN_CONSOLE, operation, argument);
-}
-
-static const char *unicodeName = NULL;
+static const char unicodeDeviceType[] = "unicode";
+static const char *unicodeDeviceName = NULL;
+static int unicodeDescriptor;
 
 static int
-setUnicodeName (void) {
+setUnicodeDeviceName (void) {
   static const char *const names[] = {"vcsu", "vcsu0", NULL};
-  return setDeviceName(&unicodeName, names, 1, "unicode");
+  return setDeviceName(&unicodeDeviceName, names, 1, unicodeDeviceType);
 }
 
 static void
-closeUnicode (int *fd) {
+closeUnicodeDevice (int *fd) {
   if (*fd != -1) {
     logMessage(LOG_CATEGORY(SCREEN_DRIVER), "closing unicode: fd=%d", *fd);
     if (close(*fd) == -1) logSystemError("close[unicode]");
@@ -508,25 +701,25 @@ closeUnicode (int *fd) {
 }
 
 static int
-openUnicode (int *fd, int vt) {
-  if (!unicodeName) return 0;
+openUnicodeDevice (int *fd, int vt) {
+  if (!unicodeDeviceName) return 0;
   if (*fd != -1) return 1;
 
   int opened = 0;
-  char *name = vtName(unicodeName, vt);
+  char *name = vtName(unicodeDeviceName, vt);
 
   if (name) {
     int unicode = openCharacterDevice(name, O_RDWR, VCS_MAJOR, 0X40|vt);
 
     if (unicode != -1) {
       logMessage(LOG_CATEGORY(SCREEN_DRIVER),
-                 "unicode opened: %s: fd=%d", name, unicode);
+                 "unicode device opened: %s: fd=%d", name, unicode);
 
-      closeUnicode(fd);
       *fd = unicode;
       opened = 1;
     } else {
-      unicodeName = NULL;
+      logMessage(LOG_ERR, "unicode device open error: %s: %s", name, strerror(errno));
+      unicodeDeviceName = NULL;
     }
 
     free(name);
@@ -535,22 +728,20 @@ openUnicode (int *fd, int vt) {
   return opened;
 }
 
-static int unicodeDescriptor;
-
 static void
-closeCurrentUnicode (void) {
-  closeUnicode(&unicodeDescriptor);
+closeCurrentUnicodeDevice (void) {
+  closeUnicodeDevice(&unicodeDescriptor);
 }
 
 static int
-openCurrentUnicode (void) {
+openCurrentUnicodeDevice (void) {
   if (!unicodeEnabled) return 0;
-  return openUnicode(&unicodeDescriptor, virtualTerminalNumber);
+  return openUnicodeDevice(&unicodeDescriptor, selectedVirtualTerminal);
 }
 
 static size_t
 readUnicodeDevice (off_t offset, void *buffer, size_t size) {
-  if (openCurrentUnicode()) {
+  if (openCurrentUnicodeDevice()) {
     const ssize_t count = pread(unicodeDescriptor, buffer, size, offset);
 
     if (count != -1) {
@@ -577,40 +768,27 @@ readUnicodeDevice (off_t offset, void *buffer, size_t size) {
       return count;
     }
 
-    if (errno != ENODATA) logSystemError("unicode read");
+    if (errno != ENODATA) logSystemError("unicode device read");
   }
 
   return 0;
 }
 
-static unsigned char *unicodeCacheBuffer;
+static void *unicodeCacheBuffer;
 static size_t unicodeCacheSize;
 static size_t unicodeCacheUsed;
 
 static size_t
 readUnicodeCache (off_t offset, void *buffer, size_t size) {
-  if (offset <= unicodeCacheUsed) {
-    size_t left = unicodeCacheUsed - offset;
-    if (size > left) size = left;
-
-    memcpy(buffer, &unicodeCacheBuffer[offset], size);
-    return size;
-  } else {
-    logMessage(LOG_ERR, "invalid unicode cache offset: %u", (unsigned int)offset);
-  }
-
-  return 0;
+  return readCache(offset, buffer, size, unicodeCacheBuffer, unicodeCacheUsed, unicodeDeviceType);
 }
 
 static int
 readUnicodeData (off_t offset, void *buffer, size_t size) {
-  size_t count = (unicodeCacheBuffer? readUnicodeCache: readUnicodeDevice)(offset, buffer, size);
+  size_t count = (unicodeCacheUsed? readUnicodeCache: readUnicodeDevice)(offset, buffer, size);
   if (count == size) return 1;
 
-  logMessage(LOG_ERR,
-             "truncated unicode data: expected %zu bytes but read %zu",
-             size, count);
-
+  logTruncatedData(size, count, unicodeDeviceType);
   return 0;
 }
 
@@ -622,31 +800,23 @@ readUnicodeContent (off_t offset, uint32_t *buffer, size_t count) {
 }
 
 static int
-refreshUnicodeCache (size_t size) {
-  size *= 4;
+refreshUnicodeCache (unsigned int characters) {
+  const size_t expectedSize = characters * sizeof(uint32_t);
 
-  if (size > unicodeCacheSize) {
-    const unsigned int bits = 10;
-    const unsigned int mask = (1 << bits) - 1;
-
-    size |= mask;
-    size += 1;
-    unsigned char *buffer = malloc(size);
-
-    if (!buffer) {
-      logMallocError();
+  if (expectedSize > unicodeCacheSize) {
+    if (!extendCacheBuffer(&unicodeCacheBuffer, &unicodeCacheSize, expectedSize, unicodeDeviceType)) {
       return 0;
     }
-
-    if (unicodeCacheBuffer) free(unicodeCacheBuffer);
-    unicodeCacheBuffer = buffer;
-    unicodeCacheSize = size;
   }
 
   unicodeCacheUsed = readUnicodeDevice(0, unicodeCacheBuffer, unicodeCacheSize);
-  return 1;
+  if (unicodeCacheUsed == expectedSize) return 1;
+
+  logUnexpectedSize(expectedSize, unicodeCacheUsed, unicodeDeviceType);
+  return 0;
 }
 
+static const char screenDeviceType[] = "screen";
 static const char *screenName = NULL;
 static int screenDescriptor;
 
@@ -660,18 +830,19 @@ static int inTextMode;
 static TimePeriod mappingRecalculationTimer;
 
 typedef struct {
-  unsigned char rows;
-  unsigned char columns;
+  unsigned short int columns;
+  unsigned short int rows;
 } ScreenSize;
 
 typedef struct {
-  unsigned char column;
-  unsigned char row;
+  unsigned short int column;
+  unsigned short int row;
 } ScreenLocation;
 
 typedef struct {
   ScreenSize size;
-  ScreenLocation location;
+  ScreenLocation cursor;
+  unsigned char hideCursor:1;
 } ScreenHeader;
 
 #ifdef HAVE_SYS_POLL_H
@@ -697,7 +868,7 @@ canMonitorScreen (void) {
 static int
 setScreenName (void) {
   static const char *const names[] = {"vcsa", "vcsa0", "vcc/a", NULL};
-  return setDeviceName(&screenName, names, 0, "screen");
+  return setDeviceName(&screenName, names, 0, screenDeviceType);
 }
 
 static int
@@ -714,6 +885,8 @@ openScreenDevice (int *fd, int vt) {
 
       *fd = screen;
       opened = 1;
+    } else {
+      logMessage(LOG_ERR, "screen open error: %s: %s", name, strerror(errno));
     }
 
     free(name);
@@ -739,15 +912,16 @@ closeCurrentScreen (void) {
 }
 
 static int
-setCurrentScreen (unsigned char vt) {
+setCurrentScreen (int vt) {
   int screen;
   if (!openScreenDevice(&screen, vt)) return 0;
 
   closeCurrentConsole();
-  closeCurrentUnicode();
+  closeCurrentUnicodeDevice();
   closeCurrentScreen();
+
   screenDescriptor = screen;
-  virtualTerminalNumber = vt;
+  selectedVirtualTerminal = vt;
 
   isMonitorable = canMonitorScreen();
   logMessage(LOG_CATEGORY(SCREEN_DRIVER),
@@ -760,7 +934,7 @@ setCurrentScreen (unsigned char vt) {
 }
 
 static size_t
-readScreenDevice (off_t offset, void *buffer, size_t size) {
+vcsaReadDevice (off_t offset, void *buffer, size_t size) {
   const ssize_t count = pread(screenDescriptor, buffer, size, offset);
   if (count != -1) return count;
 
@@ -768,44 +942,167 @@ readScreenDevice (off_t offset, void *buffer, size_t size) {
   return 0;
 }
 
-static unsigned char *screenCacheBuffer;
+static int
+vcsaHasClamping (void) {
+  int major, minor;
+  if (!getKernelRelease(&major, &minor, NULL)) return 0;
+
+  if (major < 5) return 0;
+  if (major > 5) return 1;
+  return minor >= 1;
+}
+
+typedef struct {
+  struct {
+    uint8_t rows;
+    uint8_t columns;
+  } size;
+
+  struct {
+    uint8_t column;
+    uint8_t row;
+  } cursor;
+} VcsaHeader;
+
+static int
+vcsaReadHeader (ScreenHeader *header) {
+  VcsaHeader vcsa;
+
+  {
+    size_t vcsaSize = sizeof(vcsa);
+    const size_t count = vcsaReadDevice(0, &vcsa, vcsaSize);
+    if (!count) return 0;
+
+    if (count < vcsaSize) {
+      logBytes(LOG_ERR,
+        "truncated vcsa header: %"PRIsize " < %"PRIsize,
+        &vcsa, count, count, vcsaSize
+      );
+
+      return 0;
+    }
+  }
+
+  header->size.columns = vcsa.size.columns;
+  header->size.rows = vcsa.size.rows;
+  header->cursor.column = vcsa.cursor.column;
+  header->cursor.row = vcsa.cursor.row;
+
+  if (isCurrentConsoleOpen()) {
+    if ((header->size.columns == UINT8_MAX) || (header->size.rows == UINT8_MAX) || largeScreenBug) {
+      struct winsize winSize;
+
+      if (controlCurrentConsole(TIOCGWINSZ, &winSize) != -1) {
+        header->size.columns = winSize.ws_col;
+        header->size.rows = winSize.ws_row;
+      } else {
+        logSystemError("ioctl[TIOCGWINSZ]");
+      }
+    }
+  }
+
+  if (largeScreenBug) {
+    if (header->cursor.column >= header->size.columns) {
+      header->cursor.column = header->size.columns - 1;
+    }
+
+    if (header->cursor.row >= header->size.rows) {
+      header->cursor.row = header->size.rows - 1;
+    }
+  } else if ((header->cursor.column == UINT8_MAX) || (header->cursor.row == UINT8_MAX)) {
+    header->hideCursor = 1;
+
+    {
+      static unsigned char alreadyLogged = 0;
+
+      logKernelLimitation(
+        &alreadyLogged, 6, 16,
+        "screen cursor not rendered when beyond column and/or row 255"
+      );
+    }
+  }
+
+  return 1;
+}
+
+static size_t
+readScreenDevice (off_t offset, void *buffer, size_t size) {
+  size_t result = 0;
+  const size_t headerSize = sizeof(ScreenHeader);
+
+  if (offset < headerSize) {
+    static unsigned char useGetConSizeCsrPos = 1;
+    unsigned char useVcsa = 1;
+
+    ScreenHeader header;
+    memset(&header, 0, sizeof(header));
+
+    if (useGetConSizeCsrPos && isCurrentConsoleOpen()) {
+      struct vt_consizecsrpos info;
+
+      if (controlCurrentConsole(VT_GETCONSIZECSRPOS, &info) != -1) {
+        useVcsa = 0;
+        header.size.columns = info.con_cols;
+        header.size.rows = info.con_rows;
+        header.cursor.column = info.csr_col;
+        header.cursor.row = info.csr_row;
+      } else {
+        if (errno == ENOTTY) useGetConSizeCsrPos = 0;
+        logSystemError("ioctl[VT_GETCONSIZECSRPOS]");
+      }
+    }
+
+    if (useVcsa) {
+      if (!vcsaReadHeader(&header)) {
+        goto done;
+      }
+    }
+
+    {
+      const void *from = &header + offset;
+      size_t count = headerSize - offset;
+      if (size < count) count = size;
+
+      buffer = mempcpy(buffer, from, count);
+      result += count;
+
+      if (!(size -= count)) goto done;
+      offset = headerSize;
+    }
+  }
+
+  offset -= headerSize;
+  offset += sizeof(VcsaHeader);
+
+  size_t count = vcsaReadDevice(offset, buffer, size);
+  if (!count) goto done;
+  result += count;
+
+done:
+  return result;
+}
+
+static void *screenCacheBuffer;
 static size_t screenCacheSize;
+static size_t screenCacheUsed;
 
 static size_t
 readScreenCache (off_t offset, void *buffer, size_t size) {
-  if (offset <= screenCacheSize) {
-    size_t left = screenCacheSize - offset;
-
-    if (size > left) size = left;
-    memcpy(buffer, &screenCacheBuffer[offset], size);
-    return size;
-  } else {
-    logMessage(LOG_ERR, "invalid screen cache offset: %u", (unsigned int)offset);
-  }
-
-  return 0;
+  return readCache(offset, buffer, size, screenCacheBuffer, screenCacheUsed, screenDeviceType);
 }
 
 static int
 readScreenData (off_t offset, void *buffer, size_t size) {
-  size_t count = (screenCacheBuffer? readScreenCache: readScreenDevice)(offset, buffer, size);
+  size_t count = (screenCacheUsed? readScreenCache: readScreenDevice)(offset, buffer, size);
   if (count == size) return 1;
 
-  logMessage(LOG_ERR,
-             "truncated screen data: expected %zu bytes but read %zu",
-             size, count);
-
+  logTruncatedData(size, count, screenDeviceType);
   return 0;
 }
 
 static int
 readScreenHeader (ScreenHeader *header) {
   return readScreenData(0, header, sizeof(*header));
-}
-
-static int
-readScreenSize (ScreenSize *size) {
-  return readScreenData(0, size, sizeof(*size));
 }
 
 static int
@@ -816,67 +1113,81 @@ readScreenContent (off_t offset, uint16_t *buffer, size_t count) {
   return readScreenData(offset, buffer, count);
 }
 
-static size_t
-getScreenBufferSize (const ScreenSize *screenSize) {
+static inline size_t
+toScreenBufferSize (const ScreenSize *screenSize) {
   return (screenSize->columns * screenSize->rows * 2) + sizeof(ScreenHeader);
 }
 
-static size_t
-refreshScreenBuffer (unsigned char **screenBuffer, size_t *screenSize) {
-  if (!*screenBuffer) {
+static void
+logTruncatedScreenHeader (const ScreenHeader *header, size_t count) {
+  logBytes(LOG_ERR,
+    "truncated screen header: %"PRIsize " < %"PRIsize,
+    header, count, count, sizeof(*header)
+  );
+}
+
+static int
+refreshScreenCache (unsigned int *characters) {
+  if (!screenCacheBuffer) {
     ScreenHeader header;
+    const size_t headerSize = sizeof(header);
 
     {
-      size_t size = sizeof(header);
-      size_t count = readScreenDevice(0, &header, size);
-      if (!count) return 0;
+      size_t bytesRead = readScreenDevice(0, &header, headerSize);
+      if (!bytesRead) return 0;
 
-      if (count < size) {
-        logBytes(LOG_ERR, "truncated screen header", &header, count);
+      if (bytesRead < headerSize) {
+        logTruncatedScreenHeader(&header, bytesRead);
         return 0;
       }
     }
 
     {
-      size_t size = getScreenBufferSize(&header.size);
-      unsigned char *buffer = malloc(size);
+      const size_t size = toScreenBufferSize(&header.size);
+
+      logMessage(LOG_CATEGORY(SCREEN_DRIVER),
+        "allocating screen buffer: %"PRIsize,
+        size
+      );
+
+      void *buffer = malloc(size);
 
       if (!buffer) {
         logMallocError();
         return 0;
       }
 
-      *screenBuffer = buffer;
-      *screenSize = size;
+      screenCacheBuffer = buffer;
+      screenCacheSize = size;
     }
   }
 
+  unsigned int bufferExtensionCounter = 10;
   while (1) {
-    size_t count = readScreenDevice(0, *screenBuffer, *screenSize);
-    if (!count) return 0;
+    screenCacheUsed = readScreenDevice(0, screenCacheBuffer, screenCacheSize);
+    if (!screenCacheUsed) return 0;
+    const ScreenHeader *header = screenCacheBuffer;
 
-    if (count < sizeof(ScreenHeader)) {
-      logBytes(LOG_ERR, "truncated screen header", *screenBuffer, count);
-      return 0;
-    }
+    if (screenCacheUsed < sizeof(*header)) {
+      logTruncatedScreenHeader(header, screenCacheUsed);
+    } else {
+      const size_t expectedSize = toScreenBufferSize(&header->size);
 
-    {
-      ScreenHeader *header = (void *)*screenBuffer;
-      size_t size = getScreenBufferSize(&header->size);
-      if (count >= size) return header->size.columns * header->size.rows;
+      if (screenCacheUsed == expectedSize) {
+        *characters = header->size.columns * header->size.rows;
+        return 1;
+      }
 
-      {
-        unsigned char *buffer = realloc(*screenBuffer, size);
-
-        if (!buffer) {
-          logMallocError();
-          return 0;
-        }
-
-        *screenBuffer = buffer;
-        *screenSize = size;
+      if (expectedSize <= screenCacheSize) {
+        logUnexpectedSize(expectedSize, screenCacheUsed, screenDeviceType);
+      } else if (!--bufferExtensionCounter) {
+        logMessage(LOG_WARNING, "too many screen buffer extensions");
+      } else if (extendCacheBuffer(&screenCacheBuffer, &screenCacheSize, expectedSize, screenDeviceType)) {
+        continue;
       }
     }
+
+    return 0;
   }
 }
 
@@ -967,10 +1278,15 @@ setVgaCharacterCount (int force) {
                      cfo.width, cfo.height, cfo.charcount);
           vgaCharacterCount = cfo.charcount;
         } else {
-          if (errno == ENOSYS) isNotImplemented = 1;
+          int logLevel = LOG_WARNING;
+
+          if (errno == ENOSYS) {
+            isNotImplemented = 1;
+            logLevel = LOG_CATEGORY(SCREEN_DRIVER);
+          }
 
           if (errno != EINVAL) {
-            logMessage(LOG_WARNING, "ioctl[KDFONTOP[GET]]: %s", strerror(errno));
+            logMessage(logLevel, "ioctl[KDFONTOP(GET)]: %s", strerror(errno));
           }
         }
       }
@@ -1041,10 +1357,12 @@ determineAttributesMasks (void) {
     }
 
     {
-      ScreenSize size;
+      ScreenHeader header;
 
-      if (readScreenSize(&size)) {
-        const size_t count = size.columns * size.rows;
+      if (readScreenHeader(&header)) {
+        const ScreenSize *size = &header.size;
+
+        const size_t count = size->columns * size->rows;
         unsigned short buffer[count];
 
         if (readScreenContent(0, buffer, ARRAY_COUNT(buffer))) {
@@ -1137,7 +1455,7 @@ readScreenRow (int row, size_t size, ScreenCharacter *characters, int *offsets) 
       if (unicode) {
         wc = *unicode++;
 
-        if ((blanks > 0) && (wc == WC_C(' '))) {
+        if ((blanks > 0) && iswspace(wc)) {
           blanks -= 1;
           wc = WEOF;
         } else if (widecharPadding) {
@@ -1300,6 +1618,17 @@ processParameters_LinuxScreen (char **parameters) {
     }
   }
 
+  largeScreenBug = !vcsaHasClamping();
+  {
+    const char *parameter = parameters[PARM_LARGE_SCREEN_BUG];
+
+    if (parameter && *parameter) {
+      if (!validateYesNo(&largeScreenBug, parameter)) {
+        logMessage(LOG_WARNING, "%s: %s", "invalid large screen bug setting", parameter);
+      }
+    }
+  }
+
   logScreenFontMap = 0;
   {
     const char *parameter = parameters[PARM_LOG_SCREEN_FONT_MAP];
@@ -1333,7 +1662,7 @@ processParameters_LinuxScreen (char **parameters) {
     }
   }
 
-  virtualTerminalNumber = 0;
+  selectedVirtualTerminal = 0;
   {
     const char *parameter = parameters[PARM_VIRTUAL_TERMINAL_NUMBER];
 
@@ -1341,7 +1670,7 @@ processParameters_LinuxScreen (char **parameters) {
       static const int minimum = 0;
       static const int maximum = MAX_NR_CONSOLES;
 
-      if (!validateInteger(&virtualTerminalNumber, parameter, &minimum, &maximum)) {
+      if (!validateInteger(&selectedVirtualTerminal, parameter, &minimum, &maximum)) {
         logMessage(LOG_WARNING, "%s: %s", "invalid virtual terminal number", parameter);
       }
     }
@@ -1373,13 +1702,14 @@ REPORT_LISTENER(lxBrailleDeviceOfflineListener) {
 static int
 construct_LinuxScreen (void) {
   mainConsoleDescriptor = -1;
+  currentConsoleDescriptor = -1;
   screenDescriptor = -1;
-  consoleDescriptor = -1;
   unicodeDescriptor = -1;
 
   screenUpdated = 0;
   screenCacheBuffer = NULL;
   screenCacheSize = 0;
+  screenCacheUsed = 0;
 
   unicodeCacheBuffer = NULL;
   unicodeCacheSize = 0;
@@ -1401,17 +1731,19 @@ construct_LinuxScreen (void) {
   if (setScreenName()) {
     if (setConsoleName()) {
       if (unicodeEnabled) {
-        if (!setUnicodeName()) {
+        if (!setUnicodeDeviceName()) {
           unicodeEnabled = 0;
         }
       }
 
       if (openMainConsole()) {
-        if (setCurrentScreen(virtualTerminalNumber)) {
+        if (setCurrentScreen(selectedVirtualTerminal)) {
           openKeyboard();
           brailleDeviceOfflineListener = registerReportListener(REPORT_BRAILLE_DEVICE_OFFLINE, lxBrailleDeviceOfflineListener, NULL);
           return 1;
         }
+      } else {
+        logSystemError("main console open");
       }
     }
   }
@@ -1447,6 +1779,7 @@ destruct_LinuxScreen (void) {
     screenCacheBuffer = NULL;
   }
   screenCacheSize = 0;
+  screenCacheUsed = 0;
 
   if (unicodeCacheBuffer) {
     free(unicodeCacheBuffer);
@@ -1480,56 +1813,68 @@ poll_LinuxScreen (void) {
 }
 
 static int
-getConsoleState (struct vt_stat *state) {
-  if (controlMainConsole(VT_GETSTATE, state) != -1) return 1;
-  logSystemError("ioctl[VT_GETSTATE]");
-  problemText = gettext("can't get console state");
-  return 0;
-}
-
-static int
 isUnusedConsole (int vt) {
-  int isUnused = 1;
-  unsigned char *buffer = NULL;
-  size_t size = 0;
+  int isUnused = 0;
+  int fd;
 
-  if (refreshScreenBuffer(&buffer, &size)) {
-    const ScreenHeader *header = (void *)buffer;
-    const uint16_t *from = (void *)(buffer + sizeof(*header));
-    const uint16_t *to = (void *)(buffer + getScreenBufferSize(&header->size));
+  if (openScreenDevice(&fd, vt)) {
+    const off_t start = sizeof(VcsaHeader);
+    off_t offset = start;
+    uint16_t firstCharacter;
 
-    if (from < to) {
-      const uint16_t vga = *from++;
+    while (1) {
+      uint16_t buffer[0X800];
+      size_t bytesRead = pread(fd, buffer, sizeof(buffer), offset);
+
+      if (!bytesRead) {
+        isUnused = 1;
+        goto done;
+      }
+
+      const uint16_t *from = buffer;
+      const uint16_t *to = from + (bytesRead / sizeof(buffer[0]));
+      if (offset == start) firstCharacter = *from++;
 
       while (from < to) {
-        if (*from++ != vga) {
-          isUnused = 0;
-          break;
-        }
+        if (*from != firstCharacter) goto done;
+        from += 1;
       }
+
+      offset += bytesRead;
+    }
+
+  done:
+    close(fd);
+    fd = -1;
+  } else {
+    switch (errno) {
+      default:
+        logMessage(LOG_WARNING, "can't open screen %d: %s", vt, strerror(errno));
+        break;
+
+      case ENOENT: // device name not defined
+      case EPERM: // can't define device within nodev directory
+      case ENXIO: // device not defined within kernel
+        isUnused = 1;
+        break;
     }
   }
 
-  if (buffer) free(buffer);
   return isUnused;
 }
 
 static int
-canOpenCurrentConsole (void) {
-  typedef uint16_t OpenableConsoles;
-  static OpenableConsoles openableConsoles = 0;
-
-  struct vt_stat state;
-  if (!getConsoleState(&state)) return 0;
-
-  int console = virtualTerminalNumber;
-  if (!console) console = state.v_active;
-  OpenableConsoles bit = 1 << console;
+canOpenConsole (int vt) {
+  static uint64_t openableConsoles = 0;
+  uint64_t bit = UINT64_C(1) << vt;
 
   if (bit && !(openableConsoles & bit)) {
-    if (console != MAIN_CONSOLE) {
+    if (vt != MAIN_CONSOLE) {
+      struct vt_stat state;
+      if (!getConsoleState(&state)) return 0;
+
       if (!(state.v_state & bit)) {
-        if (isUnusedConsole(console)) {
+        if (isUnusedConsole(vt)) {
           return 0;
         }
       }
@@ -1542,91 +1887,129 @@ canOpenCurrentConsole (void) {
 }
 
 static int
-getConsoleNumber (void) {
-  int console;
-
-  if (virtualTerminalNumber) {
-    console = virtualTerminalNumber;
-  } else {
-    struct vt_stat state;
-    if (!getConsoleState(&state)) return NO_CONSOLE;
-    console = state.v_active;
-  }
-
-  if (console != currentConsoleNumber) {
-    closeCurrentConsole();
-  }
-
-  if (consoleDescriptor == -1) {
-    if (!canOpenCurrentConsole()) {
-      problemText = gettext("console not in use");
-    } else if (!openCurrentConsole()) {
-      problemText = gettext("can't open console");
-    }
-
-    setTranslationTable(1);
-  }
-
-  return console;
-}
-
-static int
 testTextMode (void) {
-  if (problemText) return 0;
   int mode;
 
   if (controlCurrentConsole(KDGETMODE, &mode) == -1) {
     logSystemError("ioctl[KDGETMODE]");
   } else if (mode == KD_TEXT) {
-    if (afterTimePeriod(&mappingRecalculationTimer, NULL)) setTranslationTable(0);
+    if (afterTimePeriod(&mappingRecalculationTimer, NULL)) {
+      setTranslationTable(0);
+    }
+
     return 1;
   }
 
-  problemText = gettext("screen not in text mode");
   return 0;
 }
 
 static int
-refreshCache (void) {
-  size_t size = refreshScreenBuffer(&screenCacheBuffer, &screenCacheSize);
-  if (!size) return 0;
+getConsoleNumber (void) {
+  int vt;
 
-  if (unicodeEnabled) {
-    if (!refreshUnicodeCache(size)) {
-      return 0;
+  if (selectedVirtualTerminal) {
+    vt = selectedVirtualTerminal;
+  } else if (!getForegroundConsoleNumber(&vt)) {
+    vt = NO_CONSOLE;
+  }
+
+  if (vt != currentConsoleNumber) {
+    closeCurrentConsole();
+  }
+
+  inTextMode = 1;
+
+  if (vt != NO_CONSOLE) {
+    if (isCurrentConsoleOpen()) {
+      inTextMode = testTextMode();
+    } else {
+      if (!canOpenConsole(vt)) {
+        problemText = gettext("console not in use");
+      } else if (!openCurrentConsole(&vt)) {
+        logSystemError("current console open");
+        problemText = gettext("can't open console");
+      } else {
+        inTextMode = testTextMode();
+      }
+
+      setTranslationTable(1);
     }
   }
 
-  return 1;
+  if (!inTextMode) {
+    problemText = gettext("screen not in text mode");
+  }
+
+  return vt;
+}
+
+static int
+refreshCache (void) {
+  unsigned int characters;
+
+  if (!refreshScreenCache(&characters)) {
+    screenCacheUsed = 0;
+  } else if (!unicodeEnabled) {
+    return 1;
+  } else if (refreshUnicodeCache(characters)) {
+    return 1;
+  }
+
+  unicodeCacheUsed = 0;
+  return 0;
 }
 
 static int
 refresh_LinuxScreen (void) {
   if (screenUpdated) {
+    typedef enum {
+      REFRESH_NEEDED,
+      REFRESH_FAILED,
+      REFRESH_DONE
+    } RefreshState;
+
+    RefreshState refreshState = REFRESH_NEEDED;
+
     while (1) {
       problemText = NULL;
 
-      if (!refreshCache()) {
-        problemText = gettext("can't read screen content");
-        goto done;
-      }
-
       {
-        int consoleNumber = getConsoleNumber();
-        if (consoleNumber == currentConsoleNumber) break;
+        int newConsoleNumber = getConsoleNumber();
 
-        logMessage(LOG_CATEGORY(SCREEN_DRIVER),
-                   "console number changed: %u -> %u",
-                   currentConsoleNumber, consoleNumber);
+        if (newConsoleNumber != currentConsoleNumber) {
+          logMessage(LOG_CATEGORY(SCREEN_DRIVER),
+            "foreground console number changed: %d -> %d",
+            currentConsoleNumber, newConsoleNumber
+          );
 
-        currentConsoleNumber = consoleNumber;
+          if (refreshState != REFRESH_NEEDED) {
+            refreshState = REFRESH_NEEDED;
+
+            logMessage(LOG_WARNING,
+              "foreground console changed during cache refresh - retrying"
+            );
+          }
+
+          currentConsoleNumber = newConsoleNumber;
+        }
       }
+
+      if (currentConsoleNumber == NO_CONSOLE) {
+        problemText = gettext("no foreground console");
+      } else if (refreshState == REFRESH_DONE) {
+        screenUpdated = 0;
+      } else if (refreshState == REFRESH_FAILED) {
+        logMessage(LOG_WARNING, "cache refresh failed");
+        problemText = gettext("can't read screen content");
+      } else {
+        // refreshState == REFRESH_NEEDED
+        refreshState = refreshCache()? REFRESH_DONE: REFRESH_FAILED;
+        continue;
+      }
+
+      break;
     }
 
-    inTextMode = testTextMode();
-    screenUpdated = 0;
-
-  done:
     if (problemText) {
       if (*fallbackText) {
         problemText = gettext(fallbackText);
@@ -1638,35 +2021,32 @@ refresh_LinuxScreen (void) {
 }
 
 static int
-getScreenDescription (ScreenDescription *description) {
+getScreenProperties (ScreenDescription *description) {
   ScreenHeader header;
+  if (!readScreenHeader(&header)) return 0;
 
-  if (readScreenHeader(&header)) {
-    description->cols = header.size.columns;
-    description->rows = header.size.rows;
+  description->cols = header.size.columns;
+  description->rows = header.size.rows;
 
-    description->posx = header.location.column;
-    description->posy = header.location.row;
+  description->posx = header.cursor.column;
+  description->posy = header.cursor.row;
+  if (header.hideCursor) description->hasCursor = 0;
 
-    adjustCursorColumn(&description->posx, description->posy, description->cols);
-    return 1;
-  }
-
-  problemText = gettext("can't read screen header");
-  return 0;
+  adjustCursorColumn(&description->posx, description->posy, description->cols);
+  return 1;
 }
 
 static void
 describe_LinuxScreen (ScreenDescription *description) {
-  if (!screenCacheBuffer) {
+  if (!screenCacheUsed) {
     problemText = NULL;
     currentConsoleNumber = getConsoleNumber();
-    inTextMode = testTextMode();
   }
 
-  if ((description->number = currentConsoleNumber)) {
+  if ((description->number = currentConsoleNumber) != NO_CONSOLE) {
     if (inTextMode) {
-      if (getScreenDescription(description)) {
+      if (!getScreenProperties(description)) {
+        problemText = gettext("can't get screen properties");
       }
     }
   }
@@ -1682,18 +2062,20 @@ describe_LinuxScreen (ScreenDescription *description) {
 
 static int
 readCharacters_LinuxScreen (const ScreenBox *box, ScreenCharacter *buffer) {
-  ScreenSize size;
+  ScreenHeader header;
 
-  if (readScreenSize(&size)) {
-    if (validateScreenBox(box, size.columns, size.rows)) {
+  if (readScreenHeader(&header)) {
+    const ScreenSize *size = &header.size;
+
+    if (validateScreenBox(box, size->columns, size->rows)) {
       if (problemText) {
         setScreenMessage(box, buffer, problemText);
         return 1;
       }
 
       for (unsigned int row=0; row<box->height; row+=1) {
-        ScreenCharacter characters[size.columns];
-        if (!readScreenRow(box->top+row, size.columns, characters, NULL)) return 0;
+        ScreenCharacter characters[size->columns];
+        if (!readScreenRow(box->top+row, size->columns, characters, NULL)) return 0;
 
         memcpy(buffer, &characters[box->left],
                (box->width * sizeof(characters[0])));
@@ -1717,38 +2099,8 @@ getCapsLockState (void) {
   return 0;
 }
 
-static inline int
-hasModUpper (ScreenKey key) {
-  return (key & SCR_KEY_UPPER) && !getCapsLockState();
-}
-
-static inline int
-hasModShift (ScreenKey key) {
-  return !!(key & SCR_KEY_SHIFT);
-}
-
-static inline int
-hasModControl (ScreenKey key) {
-  return !!(key & SCR_KEY_CONTROL);
-}
-
-static inline int
-hasModAltLeft (ScreenKey key) {
-  return !!(key & SCR_KEY_ALT_LEFT);
-}
-
-static inline int
-hasModAltRight (ScreenKey key) {
-  return !!(key & SCR_KEY_ALT_RIGHT);
-}
-
-static inline int
-hasModGui (ScreenKey key) {
-  return !!(key & SCR_KEY_GUI);
-}
-
 static int
-injectKeyEvent (int key, int press) {
+injectKeyboardEvent (int key, int press) {
   logMessage(
     LOG_CATEGORY(SCREEN_DRIVER) | LOG_DEBUG,
     "injecting key %s: %02X",
@@ -1759,44 +2111,87 @@ injectKeyEvent (int key, int press) {
   return writeKeyEvent(uinputKeyboard, key, press);
 }
 
+static inline int
+hasModUpper (ScreenKey modifiers) {
+  return (modifiers & SCR_KEY_UPPER) && !getCapsLockState();
+}
+
+static inline int
+hasModShift (ScreenKey modifiers) {
+  return !!(modifiers & SCR_KEY_SHIFT);
+}
+
+static inline int
+hasModControl (ScreenKey modifiers) {
+  return !!(modifiers & SCR_KEY_CONTROL);
+}
+
+static inline int
+hasModAltLeft (ScreenKey modifiers) {
+  return !!(modifiers & SCR_KEY_ALT_LEFT);
+}
+
+static inline int
+hasModAltRight (ScreenKey modifiers) {
+  return !!(modifiers & SCR_KEY_ALT_RIGHT);
+}
+
+static inline int
+hasModGui (ScreenKey modifiers) {
+  return !!(modifiers & SCR_KEY_GUI);
+}
+
+static inline int
+hasModCapslock (ScreenKey modifiers) {
+  return !!(modifiers & SCR_KEY_CAPSLOCK);
+}
+
 static int
-insertUinput (
-  LinuxKeyCode code,
-  int modUpper, int modShift, int modControl,
-  int modAltLeft, int modAltRight
-) {
+insertLinuxKey (LinuxKeyCode code, ScreenKey modifiers) {
 #ifdef HAVE_LINUX_INPUT_H
+  const int modUpper = hasModUpper(modifiers);
+  const int modShift = hasModShift(modifiers);
+  const int modControl = hasModControl(modifiers);
+  const int modAltLeft = hasModAltLeft(modifiers);
+  const int modAltRight = hasModAltRight(modifiers);
+  const int modGui = hasModGui(modifiers);
+  const int modCapslock = hasModCapslock(modifiers);
+
+#define KEY_EVENT(KEY, PRESS) { if (!injectKeyboardEvent((KEY), (PRESS))) return 0; }
+  if (modUpper) {
+    KEY_EVENT(KEY_CAPSLOCK, 1);
+    KEY_EVENT(KEY_CAPSLOCK, 0);
+  }
+
+  if (modCapslock) KEY_EVENT(KEY_CAPSLOCK, 1);
+  if (modShift) KEY_EVENT(KEY_LEFTSHIFT, 1);
+  if (modControl) KEY_EVENT(KEY_LEFTCTRL, 1);
+  if (modAltLeft) KEY_EVENT(KEY_LEFTALT, 1);
+  if (modAltRight) KEY_EVENT(KEY_RIGHTALT, 1);
+  if (modGui) KEY_EVENT(KEY_LEFTMETA, 1);
+
   if (code) {
-#define KEY_EVENT(KEY, PRESS) { if (!injectKeyEvent((KEY), (PRESS))) return 0; }
-    if (modUpper) {
-      KEY_EVENT(KEY_CAPSLOCK, 1);
-      KEY_EVENT(KEY_CAPSLOCK, 0);
-    }
-
-    if (modShift) KEY_EVENT(KEY_LEFTSHIFT, 1);
-    if (modControl) KEY_EVENT(KEY_LEFTCTRL, 1);
-    if (modAltLeft) KEY_EVENT(KEY_LEFTALT, 1);
-    if (modAltRight) KEY_EVENT(KEY_RIGHTALT, 1);
-
     KEY_EVENT(code, 1);
     KEY_EVENT(code, 0);
+  }
 
-    if (modAltRight) KEY_EVENT(KEY_RIGHTALT, 0);
-    if (modAltLeft) KEY_EVENT(KEY_LEFTALT, 0);
-    if (modControl) KEY_EVENT(KEY_LEFTCTRL, 0);
-    if (modShift) KEY_EVENT(KEY_LEFTSHIFT, 0);
+  if (modGui) KEY_EVENT(KEY_LEFTMETA, 0);
+  if (modAltRight) KEY_EVENT(KEY_RIGHTALT, 0);
+  if (modAltLeft) KEY_EVENT(KEY_LEFTALT, 0);
+  if (modControl) KEY_EVENT(KEY_LEFTCTRL, 0);
+  if (modShift) KEY_EVENT(KEY_LEFTSHIFT, 0);
+  if (modCapslock) KEY_EVENT(KEY_CAPSLOCK, 0);
 
-    if (modUpper) {
-      KEY_EVENT(KEY_CAPSLOCK, 1);
-      KEY_EVENT(KEY_CAPSLOCK, 0);
-    }
+  if (modUpper) {
+    KEY_EVENT(KEY_CAPSLOCK, 1);
+    KEY_EVENT(KEY_CAPSLOCK, 0);
+  }
 #undef KEY_EVENT
 
-    return 1;
-  }
-#endif /* HAVE_LINUX_INPUT_H */
-
+  return 1;
+#else /* HAVE_LINUX_INPUT_H */
   return 0;
+#endif /* HAVE_LINUX_INPUT_H */
 }
 
 static int
@@ -1826,6 +2221,218 @@ insertBytes (const char *byte, size_t count) {
     count -= 1;
   }
   return 1;
+}
+
+typedef struct {
+  const LinuxKeyCode *xtMap;
+  unsigned char xtCode;
+  unsigned char xtEscape;
+} ScreenKeyEntry;
+
+static const ScreenKeyEntry *
+getScreenKeyEntry (ScreenKey key, unsigned char *shift) {
+  *shift = 0;
+
+#define SCREEN_KEY_ENTRY(KEY, ESCAPE, CODE) \
+  case (KEY): { \
+    static const ScreenKeyEntry screenKeyEntry = { \
+      .xtMap = linuxKeyMap_xt ## ESCAPE, \
+      .xtCode = XT_KEY_ ## ESCAPE ## _ ## CODE, \
+      .xtEscape = XT_MOD_ ## ESCAPE, \
+    }; \
+    return &screenKeyEntry; \
+  }
+
+#define SCREEN_KEY_SYMBOL(UNSHIFTED, SHIFTED, ESCAPE, CODE) \
+  case (SHIFTED): *shift = 1; \
+  SCREEN_KEY_ENTRY(UNSHIFTED, ESCAPE, CODE)
+
+  switch (key & SCR_KEY_CHAR_MASK) {
+    SCREEN_KEY_ENTRY(SCR_KEY_ESCAPE, 00, Escape)
+
+    SCREEN_KEY_ENTRY(SCR_KEY_F1, 00, F1)
+    SCREEN_KEY_ENTRY(SCR_KEY_F2, 00, F2)
+    SCREEN_KEY_ENTRY(SCR_KEY_F3, 00, F3)
+    SCREEN_KEY_ENTRY(SCR_KEY_F4, 00, F4)
+    SCREEN_KEY_ENTRY(SCR_KEY_F5, 00, F5)
+    SCREEN_KEY_ENTRY(SCR_KEY_F6, 00, F6)
+    SCREEN_KEY_ENTRY(SCR_KEY_F7, 00, F7)
+    SCREEN_KEY_ENTRY(SCR_KEY_F8, 00, F8)
+    SCREEN_KEY_ENTRY(SCR_KEY_F9, 00, F9)
+    SCREEN_KEY_ENTRY(SCR_KEY_F10, 00, F10)
+    SCREEN_KEY_ENTRY(SCR_KEY_F11, 00, F11)
+    SCREEN_KEY_ENTRY(SCR_KEY_F12, 00, F12)
+
+    SCREEN_KEY_ENTRY(SCR_KEY_F13, 00, F13)
+    SCREEN_KEY_ENTRY(SCR_KEY_F14, 00, F14)
+    SCREEN_KEY_ENTRY(SCR_KEY_F15, 00, F15)
+    SCREEN_KEY_ENTRY(SCR_KEY_F16, 00, F16)
+    SCREEN_KEY_ENTRY(SCR_KEY_F17, 00, F17)
+    SCREEN_KEY_ENTRY(SCR_KEY_F18, 00, F18)
+    SCREEN_KEY_ENTRY(SCR_KEY_F19, 00, F19)
+    SCREEN_KEY_ENTRY(SCR_KEY_F20, 00, F20)
+    SCREEN_KEY_ENTRY(SCR_KEY_F21, 00, F21)
+    SCREEN_KEY_ENTRY(SCR_KEY_F22, 00, F22)
+    SCREEN_KEY_ENTRY(SCR_KEY_F23, 00, F23)
+    SCREEN_KEY_ENTRY(SCR_KEY_F24, 00, F24)
+
+    SCREEN_KEY_SYMBOL('`', '~', 00, Grave)
+    SCREEN_KEY_SYMBOL('1', '!', 00, 1)
+    SCREEN_KEY_SYMBOL('2', '@', 00, 2)
+    SCREEN_KEY_SYMBOL('3', '#', 00, 3)
+    SCREEN_KEY_SYMBOL('4', '$', 00, 4)
+    SCREEN_KEY_SYMBOL('5', '%', 00, 5)
+    SCREEN_KEY_SYMBOL('6', '^', 00, 6)
+    SCREEN_KEY_SYMBOL('7', '&', 00, 7)
+    SCREEN_KEY_SYMBOL('8', '*', 00, 8)
+    SCREEN_KEY_SYMBOL('9', '(', 00, 9)
+    SCREEN_KEY_SYMBOL('0', ')', 00, 0)
+    SCREEN_KEY_SYMBOL('-', '_', 00, Minus)
+    SCREEN_KEY_SYMBOL('=', '+', 00, Equal)
+    SCREEN_KEY_ENTRY(SCR_KEY_BACKSPACE, 00, Backspace)
+
+    SCREEN_KEY_ENTRY(SCR_KEY_TAB, 00, Tab)
+    SCREEN_KEY_SYMBOL('q', 'Q', 00, Q)
+    SCREEN_KEY_SYMBOL('w', 'W', 00, W)
+    SCREEN_KEY_SYMBOL('e', 'E', 00, E)
+    SCREEN_KEY_SYMBOL('r', 'R', 00, R)
+    SCREEN_KEY_SYMBOL('t', 'T', 00, T)
+    SCREEN_KEY_SYMBOL('y', 'Y', 00, Y)
+    SCREEN_KEY_SYMBOL('u', 'U', 00, U)
+    SCREEN_KEY_SYMBOL('i', 'I', 00, I)
+    SCREEN_KEY_SYMBOL('o', 'O', 00, O)
+    SCREEN_KEY_SYMBOL('p', 'P', 00, P)
+    SCREEN_KEY_SYMBOL('[', '{', 00, LeftBracket)
+    SCREEN_KEY_SYMBOL(']', '}', 00, RightBracket)
+    SCREEN_KEY_SYMBOL('\\', '|', 00, Backslash)
+
+    SCREEN_KEY_SYMBOL('a', 'A', 00, A)
+    SCREEN_KEY_SYMBOL('s', 'S', 00, S)
+    SCREEN_KEY_SYMBOL('d', 'D', 00, D)
+    SCREEN_KEY_SYMBOL('f', 'F', 00, F)
+    SCREEN_KEY_SYMBOL('g', 'G', 00, G)
+    SCREEN_KEY_SYMBOL('h', 'H', 00, H)
+    SCREEN_KEY_SYMBOL('j', 'J', 00, J)
+    SCREEN_KEY_SYMBOL('k', 'K', 00, K)
+    SCREEN_KEY_SYMBOL('l', 'L', 00, L)
+    SCREEN_KEY_SYMBOL(';', ':', 00, Semicolon)
+    SCREEN_KEY_SYMBOL('\'', '"', 00, Apostrophe)
+    SCREEN_KEY_ENTRY(SCR_KEY_ENTER, 00, Enter)
+
+    SCREEN_KEY_SYMBOL('z', 'Z', 00, Z)
+    SCREEN_KEY_SYMBOL('x', 'X', 00, X)
+    SCREEN_KEY_SYMBOL('c', 'C', 00, C)
+    SCREEN_KEY_SYMBOL('v', 'V', 00, V)
+    SCREEN_KEY_SYMBOL('b', 'B', 00, B)
+    SCREEN_KEY_SYMBOL('n', 'N', 00, N)
+    SCREEN_KEY_SYMBOL('m', 'M', 00, M)
+    SCREEN_KEY_SYMBOL(',', '<', 00, Comma)
+    SCREEN_KEY_SYMBOL('.', '>', 00, Period)
+    SCREEN_KEY_SYMBOL('/', '?', 00, Slash)
+
+    SCREEN_KEY_ENTRY(' ', 00, Space)
+
+    SCREEN_KEY_ENTRY(SCR_KEY_INSERT, E0, Insert)
+    SCREEN_KEY_ENTRY(SCR_KEY_DELETE, E0, Delete)
+    SCREEN_KEY_ENTRY(SCR_KEY_HOME, E0, Home)
+    SCREEN_KEY_ENTRY(SCR_KEY_END, E0, End)
+    SCREEN_KEY_ENTRY(SCR_KEY_PAGE_UP, E0, PageUp)
+    SCREEN_KEY_ENTRY(SCR_KEY_PAGE_DOWN, E0, PageDown)
+
+    SCREEN_KEY_ENTRY(SCR_KEY_CURSOR_UP, E0, ArrowUp)
+    SCREEN_KEY_ENTRY(SCR_KEY_CURSOR_LEFT, E0, ArrowLeft)
+    SCREEN_KEY_ENTRY(SCR_KEY_CURSOR_DOWN, E0, ArrowDown)
+    SCREEN_KEY_ENTRY(SCR_KEY_CURSOR_RIGHT, E0, ArrowRight)
+  }
+
+#undef SCREEN_KEY_SYMBOL
+#undef SCREEN_KEY_ENTRY
+
+  return NULL;
+}
+
+static int
+insertKeyCode (ScreenKey screenKey, int raw) {
+  setScreenKeyModifiers(&screenKey, SCR_KEY_SHIFT | SCR_KEY_CONTROL);
+
+  unsigned char shift = 0;
+  const ScreenKeyEntry *ske = getScreenKeyEntry(screenKey, &shift);
+  if (shift) screenKey |= SCR_KEY_SHIFT;
+
+  if (!ske) {
+    logMessage(LOG_WARNING, "key not supported in raw keyboard mode: %04X", screenKey);
+    return 0;
+  }
+
+  if (raw) {
+    const int modUpper = hasModUpper(screenKey);
+    const int modShift = hasModShift(screenKey);
+    const int modControl = hasModControl(screenKey);
+    const int modAltLeft = hasModAltLeft(screenKey);
+    const int modAltRight = hasModAltRight(screenKey);
+    const int modGui = hasModGui(screenKey);
+    const int modCapslock = hasModCapslock(screenKey);
+
+    char codes[24];
+    unsigned int count = 0;
+
+    if (modUpper) {
+      codes[count++] = XT_KEY_00_CapsLock;
+      codes[count++] = XT_KEY_00_CapsLock | XT_BIT_RELEASE;
+    }
+
+    if (modCapslock) codes[count++] = XT_KEY_00_CapsLock;
+    if (modShift) codes[count++] = XT_KEY_00_LeftShift;
+    if (modControl) codes[count++] = XT_KEY_00_LeftControl;
+    if (modAltLeft) codes[count++] = XT_KEY_00_LeftAlt;
+
+    if (modAltRight) {
+      codes[count++] = XT_MOD_E0;
+      codes[count++] = XT_KEY_E0_RightAlt;
+    }
+
+    if (modGui) {
+      codes[count++] = XT_MOD_E0;
+      codes[count++] = XT_KEY_E0_LeftGUI;
+    }
+
+    if (ske->xtEscape) codes[count++] = ske->xtEscape;
+    codes[count++] = ske->xtCode;
+
+    if (ske->xtEscape) codes[count++] = ske->xtEscape;
+    codes[count++] = ske->xtCode | XT_BIT_RELEASE;
+
+    if (modGui) {
+      codes[count++] = XT_MOD_E0;
+      codes[count++] = XT_KEY_E0_LeftGUI | XT_BIT_RELEASE;
+    }
+
+    if (modAltRight) {
+      codes[count++] = XT_MOD_E0;
+      codes[count++] = XT_KEY_E0_RightAlt | XT_BIT_RELEASE;
+    }
+
+    if (modAltLeft) codes[count++] = XT_KEY_00_LeftAlt | XT_BIT_RELEASE;
+    if (modControl) codes[count++] = XT_KEY_00_LeftControl | XT_BIT_RELEASE;
+    if (modShift) codes[count++] = XT_KEY_00_LeftShift | XT_BIT_RELEASE;
+    if (modCapslock) codes[count++] = XT_KEY_00_CapsLock | XT_BIT_RELEASE;
+
+    if (modUpper) {
+      codes[count++] = XT_KEY_00_CapsLock;
+      codes[count++] = XT_KEY_00_CapsLock | XT_BIT_RELEASE;
+    }
+
+    return insertBytes(codes, count);
+  } else {
+    LinuxKeyCode linuxKey = ske->xtMap[ske->xtCode];
+
+    if (!linuxKey) {
+      logMessage(LOG_WARNING, "key not supported in medium raw keyboard mode: %04X", screenKey);
+      return 0;
+    }
+
+    return insertLinuxKey(linuxKey, screenKey);
+  }
 }
 
 static int
@@ -1860,193 +2467,6 @@ insertUnicode (wchar_t character) {
   }
 
   return 0;
-}
-
-static int
-insertCode (ScreenKey key, int raw) {
-  const LinuxKeyCode *map;
-  unsigned char code;
-  unsigned char escape;
-
-  setScreenKeyModifiers(&key, SCR_KEY_SHIFT | SCR_KEY_CONTROL);
-
-#define KEY_TO_XT(KEY, ESCAPE, CODE) \
-  case (KEY): \
-  map = linuxKeyMap_xt ## ESCAPE; \
-  code = XT_KEY_ ## ESCAPE ## _ ## CODE; \
-  escape = XT_MOD_ ## ESCAPE; \
-  break;
-
-  switch (key & SCR_KEY_CHAR_MASK) {
-    KEY_TO_XT(SCR_KEY_ESCAPE, 00, Escape)
-    KEY_TO_XT(SCR_KEY_F1, 00, F1)
-    KEY_TO_XT(SCR_KEY_F2, 00, F2)
-    KEY_TO_XT(SCR_KEY_F3, 00, F3)
-    KEY_TO_XT(SCR_KEY_F4, 00, F4)
-    KEY_TO_XT(SCR_KEY_F5, 00, F5)
-    KEY_TO_XT(SCR_KEY_F6, 00, F6)
-    KEY_TO_XT(SCR_KEY_F7, 00, F7)
-    KEY_TO_XT(SCR_KEY_F8, 00, F8)
-    KEY_TO_XT(SCR_KEY_F9, 00, F9)
-    KEY_TO_XT(SCR_KEY_F10, 00, F10)
-    KEY_TO_XT(SCR_KEY_F11, 00, F11)
-    KEY_TO_XT(SCR_KEY_F12, 00, F12)
-
-    KEY_TO_XT(SCR_KEY_F13, 00, F13)
-    KEY_TO_XT(SCR_KEY_F14, 00, F14)
-    KEY_TO_XT(SCR_KEY_F15, 00, F15)
-    KEY_TO_XT(SCR_KEY_F16, 00, F16)
-    KEY_TO_XT(SCR_KEY_F17, 00, F17)
-    KEY_TO_XT(SCR_KEY_F18, 00, F18)
-    KEY_TO_XT(SCR_KEY_F19, 00, F19)
-    KEY_TO_XT(SCR_KEY_F20, 00, F20)
-    KEY_TO_XT(SCR_KEY_F21, 00, F21)
-    KEY_TO_XT(SCR_KEY_F22, 00, F22)
-    KEY_TO_XT(SCR_KEY_F23, 00, F23)
-    KEY_TO_XT(SCR_KEY_F24, 00, F24)
-
-    KEY_TO_XT('`', 00, Grave)
-    KEY_TO_XT('1', 00, 1)
-    KEY_TO_XT('2', 00, 2)
-    KEY_TO_XT('3', 00, 3)
-    KEY_TO_XT('4', 00, 4)
-    KEY_TO_XT('5', 00, 5)
-    KEY_TO_XT('6', 00, 6)
-    KEY_TO_XT('7', 00, 7)
-    KEY_TO_XT('8', 00, 8)
-    KEY_TO_XT('9', 00, 9)
-    KEY_TO_XT('0', 00, 0)
-    KEY_TO_XT('-', 00, Minus)
-    KEY_TO_XT('=', 00, Equal)
-    KEY_TO_XT(SCR_KEY_BACKSPACE, 00, Backspace)
-
-    KEY_TO_XT(SCR_KEY_TAB, 00, Tab)
-    KEY_TO_XT('q', 00, Q)
-    KEY_TO_XT('w', 00, W)
-    KEY_TO_XT('e', 00, E)
-    KEY_TO_XT('r', 00, R)
-    KEY_TO_XT('t', 00, T)
-    KEY_TO_XT('y', 00, Y)
-    KEY_TO_XT('u', 00, U)
-    KEY_TO_XT('i', 00, I)
-    KEY_TO_XT('o', 00, O)
-    KEY_TO_XT('p', 00, P)
-    KEY_TO_XT('[', 00, LeftBracket)
-    KEY_TO_XT(']', 00, RightBracket)
-    KEY_TO_XT('\\', 00, Backslash)
-
-    KEY_TO_XT('a', 00, A)
-    KEY_TO_XT('s', 00, S)
-    KEY_TO_XT('d', 00, D)
-    KEY_TO_XT('f', 00, F)
-    KEY_TO_XT('g', 00, G)
-    KEY_TO_XT('h', 00, H)
-    KEY_TO_XT('j', 00, J)
-    KEY_TO_XT('k', 00, K)
-    KEY_TO_XT('l', 00, L)
-    KEY_TO_XT(';', 00, Semicolon)
-    KEY_TO_XT('\'', 00, Apostrophe)
-    KEY_TO_XT(SCR_KEY_ENTER, 00, Enter)
-
-    KEY_TO_XT('z', 00, Z)
-    KEY_TO_XT('x', 00, X)
-    KEY_TO_XT('c', 00, C)
-    KEY_TO_XT('v', 00, V)
-    KEY_TO_XT('b', 00, B)
-    KEY_TO_XT('n', 00, N)
-    KEY_TO_XT('m', 00, M)
-    KEY_TO_XT(',', 00, Comma)
-    KEY_TO_XT('.', 00, Period)
-    KEY_TO_XT('/', 00, Slash)
-
-    KEY_TO_XT(' ', 00, Space)
-
-    KEY_TO_XT(SCR_KEY_INSERT, E0, Insert)
-    KEY_TO_XT(SCR_KEY_DELETE, E0, Delete)
-    KEY_TO_XT(SCR_KEY_HOME, E0, Home)
-    KEY_TO_XT(SCR_KEY_END, E0, End)
-    KEY_TO_XT(SCR_KEY_PAGE_UP, E0, PageUp)
-    KEY_TO_XT(SCR_KEY_PAGE_DOWN, E0, PageDown)
-
-    KEY_TO_XT(SCR_KEY_CURSOR_UP, E0, ArrowUp)
-    KEY_TO_XT(SCR_KEY_CURSOR_LEFT, E0, ArrowLeft)
-    KEY_TO_XT(SCR_KEY_CURSOR_DOWN, E0, ArrowDown)
-    KEY_TO_XT(SCR_KEY_CURSOR_RIGHT, E0, ArrowRight)
-
-    default:
-      logMessage(LOG_WARNING, "key not supported in raw keyboard mode: %04X", key);
-      return 0;
-  }
-#undef KEY_TO_XT
-
-  {
-    const int modUpper = hasModUpper(key);
-    const int modShift = hasModShift(key);
-    const int modControl = hasModControl(key);
-    const int modAltLeft = hasModAltLeft(key);
-    const int modAltRight = hasModAltRight(key);
-    const int modGui = hasModGui(key);
-
-    if (raw) {
-      char codes[22];
-      unsigned int count = 0;
-
-      if (modUpper) {
-        codes[count++] = XT_KEY_00_CapsLock;
-        codes[count++] = XT_KEY_00_CapsLock | XT_BIT_RELEASE;
-      }
-
-      if (modShift) codes[count++] = XT_KEY_00_LeftShift;
-      if (modControl) codes[count++] = XT_KEY_00_LeftControl;
-      if (modAltLeft) codes[count++] = XT_KEY_00_LeftAlt;
-
-      if (modAltRight) {
-        codes[count++] = XT_MOD_E0;
-        codes[count++] = XT_KEY_E0_RightAlt;
-      }
-
-      if (modGui) {
-        codes[count++] = XT_MOD_E0;
-        codes[count++] = XT_KEY_E0_LeftGUI;
-      }
-
-      if (escape) codes[count++] = escape;
-      codes[count++] = code;
-
-      if (escape) codes[count++] = escape;
-      codes[count++] = code | XT_BIT_RELEASE;
-
-      if (modGui) {
-        codes[count++] = XT_MOD_E0;
-        codes[count++] = XT_KEY_E0_LeftGUI | XT_BIT_RELEASE;
-      }
-
-      if (modAltRight) {
-        codes[count++] = XT_MOD_E0;
-        codes[count++] = XT_KEY_E0_RightAlt | XT_BIT_RELEASE;
-      }
-
-      if (modAltLeft) codes[count++] = XT_KEY_00_LeftAlt | XT_BIT_RELEASE;
-      if (modControl) codes[count++] = XT_KEY_00_LeftControl | XT_BIT_RELEASE;
-      if (modShift) codes[count++] = XT_KEY_00_LeftShift | XT_BIT_RELEASE;
-
-      if (modUpper) {
-        codes[count++] = XT_KEY_00_CapsLock;
-        codes[count++] = XT_KEY_00_CapsLock | XT_BIT_RELEASE;
-      }
-
-      return insertBytes(codes, count);
-    } else {
-      LinuxKeyCode mapped = map[code];
-
-      if (!mapped) {
-        logMessage(LOG_WARNING, "key not supported in medium raw keyboard mode: %04X", key);
-        return 0;
-      }
-
-      return insertUinput(mapped, modUpper, modShift, modControl, modAltLeft, modAltRight);
-    }
-  }
 }
 
 static int
@@ -2196,7 +2616,7 @@ insertTranslated (ScreenKey key, int (*insertCharacter)(wchar_t character)) {
         break;
 
       default:
-        if (insertCode(key, 0)) return 1;
+        if (insertKeyCode(key, 0)) return 1;
         logMessage(LOG_WARNING, "key not supported in xlate keyboard mode: %04X", key);
         return 0;
     }
@@ -2245,6 +2665,14 @@ insertTranslated (ScreenKey key, int (*insertCharacter)(wchar_t character)) {
 }
 
 static int
+logKeyboardMode (const char *mode) {
+  return logMessage(
+    LOG_CATEGORY(SCREEN_DRIVER) | LOG_DEBUG,
+    "keyboard mode is %s", mode
+  );
+}
+
+static int
 insertKey_LinuxScreen (ScreenKey key) {
   int ok = 0;
   int mode;
@@ -2252,24 +2680,29 @@ insertKey_LinuxScreen (ScreenKey key) {
   if (controlCurrentConsole(KDGKBMODE, &mode) != -1) {
     switch (mode) {
       case K_RAW:
-        if (insertCode(key, 1)) ok = 1;
+        logKeyboardMode("raw");
+        if (insertKeyCode(key, 1)) ok = 1;
         break;
 
       case K_MEDIUMRAW:
-        if (insertCode(key, 0)) ok = 1;
+        logKeyboardMode("medium raw");
+        if (insertKeyCode(key, 0)) ok = 1;
         break;
 
       case K_XLATE:
+        logKeyboardMode("translated");
         if (insertTranslated(key, insertXlate)) ok = 1;
         break;
 
       case K_UNICODE:
+        logKeyboardMode("unicode");
         if (insertTranslated(key, insertUnicode)) ok = 1;
         break;
 
 #ifdef K_OFF
       case K_OFF:
-        ok = 1;
+        logKeyboardMode("off");
+        if (insertKeyCode(key, 0)) ok = 1;
         break;
 #endif /* K_OFF */
 
@@ -2282,6 +2715,30 @@ insertKey_LinuxScreen (ScreenKey key) {
   }
 
   return ok;
+}
+
+static ScreenPasteMode
+getPasteMode_LinuxScreen (void) {
+  unsigned char subcode = TIOCL_GETBRACKETEDPASTE;
+  int result = controlCurrentConsole(TIOCLINUX, &subcode);
+
+  if (result > 0) return SPM_BRACKETED;
+  if (result == 0) return SPM_PLAIN;
+
+  if (result == -1) {
+    if (errno == EINVAL) {
+      static unsigned char alreadyLogged = 0;
+
+      logKernelLimitation(
+        &alreadyLogged, 6, 16,
+        "cannot determine current console bracketed paste state"
+      );
+    } else {
+      logSystemError("ioctl[TIOCLINUX(TIOCL_GETBRACKETEDPASTE)]");
+    }
+  }
+
+  return SPM_UNKNOWN;
 }
 
 typedef struct {
@@ -2331,7 +2788,7 @@ unhighlightRegion_LinuxScreen (void) {
 }
 
 static int
-validateVt (int vt) {
+validateVirtualTerminalNumber (int vt) {
   if ((vt >= 1) && (vt <= MAX_NR_CONSOLES)) return 1;
   logMessage(LOG_WARNING, "virtual terminal out of range: %d", vt);
   return 0;
@@ -2339,14 +2796,14 @@ validateVt (int vt) {
 
 static int
 selectVirtualTerminal_LinuxScreen (int vt) {
-  if (vt == virtualTerminalNumber) return 1;
-  if (vt && !validateVt(vt)) return 0;
+  if (vt == selectedVirtualTerminal) return 1;
+  if (vt && !validateVirtualTerminalNumber(vt)) return 0;
   return setCurrentScreen(vt);
 }
 
 static int
 switchVirtualTerminal_LinuxScreen (int vt) {
-  if (validateVt(vt)) {
+  if (validateVirtualTerminalNumber(vt)) {
     if (selectVirtualTerminal_LinuxScreen(0)) {
       if (controlMainConsole(VT_ACTIVATE, (void *)(intptr_t)vt) != -1) {
         logMessage(LOG_CATEGORY(SCREEN_DRIVER),
@@ -2407,7 +2864,7 @@ handleCommand_LinuxScreen (int command) {
 
             xtKeys = linuxKeyMap_xt00;
 
-            if (key) return injectKeyEvent(key, press);
+            if (key) return injectKeyboardEvent(key, press);
 	  }
           break;
 
@@ -2444,7 +2901,7 @@ handleCommand_LinuxScreen (int command) {
             atKeys = linuxKeyMap_at00;
             atKeyPressed = 1;
 
-            if (key) return injectKeyEvent(key, press);
+            if (key) return injectKeyboardEvent(key, press);
           }
           break;
 
@@ -2468,7 +2925,7 @@ handleCommand_LinuxScreen (int command) {
 
             ps2KeyPressed = 1;
 
-            if (key) return injectKeyEvent(key, press);
+            if (key) return injectKeyboardEvent(key, press);
           }
           break;
 
@@ -2492,6 +2949,7 @@ scr_initialize (MainScreen *main) {
   main->base.describe = describe_LinuxScreen;
   main->base.readCharacters = readCharacters_LinuxScreen;
   main->base.insertKey = insertKey_LinuxScreen;
+  main->base.getPasteMode = getPasteMode_LinuxScreen;
   main->base.highlightRegion = highlightRegion_LinuxScreen;
   main->base.unhighlightRegion = unhighlightRegion_LinuxScreen;
   main->base.selectVirtualTerminal = selectVirtualTerminal_LinuxScreen;

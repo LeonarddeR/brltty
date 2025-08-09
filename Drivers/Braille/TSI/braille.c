@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -18,7 +18,7 @@
 
 /* TSI/braille.c - Braille display driver for TSI displays
  *
- * Written by Stéphane Doyon (s.doyon@videotron.ca)
+ * Written by StÃ©phane Doyon (s.doyon@videotron.ca)
  *
  * It attempts full support for Navigator 20/40/80 and Powerbraille 40/65/80.
  * It is designed to be compiled into BRLTTY version 3.5.

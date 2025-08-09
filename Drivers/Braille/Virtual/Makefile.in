@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -20,7 +20,7 @@ DRIVER_CODE = vr
 DRIVER_NAME = Virtual
 DRIVER_USAGE = remote client/server via TCP/IP or local socket
 DRIVER_VERSION = 0.1
-DRIVER_DEVELOPERS = Mario Lang <mlang@delysid.org>
+DRIVER_DEVELOPERS = Mario Lang <mlang@tugraz.at>
 include $(SRC_TOP)braille.mk
 
 braille.$O:

@@ -6,14 +6,16 @@ description = """
 "${project.name}" is a Java wrapper for the native "${rootProject.name}" code.
 """
 
-apply from: "brltty.gradle"
+apply from: "brltty-component.gradle"
 
 android {
-  compileSdkVersion "android-33"
+  namespace "org.a11y.brltty.core"
+
+  compileSdkVersion "android-34"
   buildToolsVersion "29.0.3"
 
   defaultConfig {
-    targetSdkVersion 33
+    targetSdkVersion 34
     minSdkVersion 16
   }
 }

@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -1141,6 +1141,25 @@ processConfigurationFile (
   }
 }
 
+static void
+toAbsolutePaths (OptionProcessingInformation *info) {
+  char *parent = getWorkingDirectory();
+
+  if (parent) {
+    for (unsigned int optionIndex=0; optionIndex<info->options->count; optionIndex+=1) {
+      const CommandLineOption *option = &info->options->table[optionIndex];
+
+      if (option->internal.adjust == toAbsoluteInstallPath) {
+        if (**option->setting.string) {
+          anchorRelativePath(option->setting.string, parent);
+        }
+      }
+    }
+
+    free(parent);
+  }
+}
+
 void
 resetOptions (const CommandLineOptions *options) {
   for (unsigned int index=0; index<options->count; index+=1) {
@@ -1200,6 +1219,8 @@ processOptions (const CommandLineDescriptor *descriptor, int *argumentCount, cha
 
   if (info.exitImmediately) return PROG_EXIT_FORCE;
   if (info.syntaxError) return PROG_EXIT_SYNTAX;
+
+  toAbsolutePaths(&info);
   return PROG_EXIT_SUCCESS;
 }
 

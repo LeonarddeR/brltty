@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -41,6 +41,8 @@ extern int isExplicitPath (const char *path);
 
 extern char *joinPath (const char *const *components, unsigned int count);
 extern char *makePath (const char *directory, const char *file);
+extern int anchorRelativePath (char **path, const char *anchor);
+extern char *makeHelperPath (const char *name);
 
 extern int hasFileExtension (const char *path, const char *extension);
 extern char *replaceFileExtension (const char *path, const char *extension);
@@ -59,11 +61,9 @@ extern int createDirectory (const char *path, int worldWritable);
 extern int ensureDirectory (const char *path, int worldWritable);
 extern int ensurePathDirectory (const char *path);
 
-extern void setUpdatableDirectory (const char *directory);
 extern const char *getUpdatableDirectory (void);
 extern char *makeUpdatablePath (const char *file);
 
-extern void setWritableDirectory (const char *directory);
 extern const char *getWritableDirectory (void);
 extern char *makeWritablePath (const char *file);
 

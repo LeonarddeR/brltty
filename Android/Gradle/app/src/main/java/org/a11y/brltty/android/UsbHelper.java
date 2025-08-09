@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -59,6 +59,7 @@ public class UsbHelper {
 
             if (intent.getBooleanExtra(UsbManager.EXTRA_PERMISSION_GRANTED, false)) {
               Log.i(LOG_TAG, "permission granted for USB device: " + device);
+              BrailleNotification.create();
             } else {
               Log.w(LOG_TAG, "permission denied for USB device: " + device);
             }
@@ -71,7 +72,12 @@ public class UsbHelper {
 
     {
       IntentFilter filter = new IntentFilter(ACTION_USB_PERMISSION);
-      usbContext.registerReceiver(permissionReceiver, filter);
+
+      if (APITests.haveUpsideDownCake) {
+        usbContext.registerReceiver(permissionReceiver, filter, Context.RECEIVER_NOT_EXPORTED);
+      } else {
+        usbContext.registerReceiver(permissionReceiver, filter);
+      }
     }
 
     permissionIntent = PendingIntent.getBroadcast(

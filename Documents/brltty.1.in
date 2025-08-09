@@ -3,7 +3,7 @@
 .\" BRLTTY - A background process providing access to the console screen (when in
 .\"          text mode) for a blind person using a refreshable braille display.
 .\"
-.\" Copyright (C) 1995-2023 by The BRLTTY Developers.
+.\" Copyright (C) 1995-2025 by The BRLTTY Developers.
 .\"
 .\" BRLTTY comes with ABSOLUTELY NO WARRANTY.
 .\"
@@ -16,7 +16,7 @@
 .\"
 .\" This software is maintained by Dave Mielke <dave@mielke.cc>.
 .\"
-.TH "BRLTTY" "1" "July 2023" "@PACKAGE_TARNAME@ @PACKAGE_VERSION@" "@PACKAGE_NAME@ User's Manual"
+.TH "BRLTTY" "1" "July 2025" "@PACKAGE_TARNAME@ @PACKAGE_VERSION@" "@PACKAGE_NAME@ User's Manual"
 .SH NAME
 brltty \- refreshable braille display driver for Linux/Unix
 .SH SYNOPSIS

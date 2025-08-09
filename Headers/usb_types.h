@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -191,7 +191,7 @@ typedef struct {
 } PACKED UsbConfigurationDescriptor;
 
 typedef struct {
-  uint8_t bLength;         /* Descriptor size in bytes (2 + numchars/2). */
+  uint8_t bLength;         /* Descriptor size in bytes (2 + numchars*2). */
   uint8_t bDescriptorType; /* Descriptor type (3 == string). */
   uint16_t wData[127];     /* 16-bit characters. */
 } PACKED UsbStringDescriptor;
@@ -225,7 +225,7 @@ typedef struct {
 } PACKED UsbClassDescriptor;
 
 typedef struct {
-  uint8_t bLength;          /* Descriptor size in bytes (6). */
+  uint8_t bLength;          /* Descriptor size in bytes (6 + numdescs*3). */
   uint8_t bDescriptorType;  /* Descriptor type (33 == HID). */
   uint16_t bcdHID;
   uint8_t bCountryCode;

@@ -1,7 +1,7 @@
 /*
  * libbrlapi - A library providing access to braille terminals for applications.
  *
- * Copyright (C) 2006-2023 by
+ * Copyright (C) 2006-2025 by
  *   Samuel Thibault <Samuel.Thibault@ens-lyon.org>
  *   Sébastien Hinderer <Sebastien.Hinderer@ens-lyon.org>
  *
@@ -36,7 +36,7 @@ public class MessageLocaleParameter extends GlobalParameter implements Parameter
   }
 
   @Override
-  public final void set (String locale) {
-    setValue(locale);
+  public final void set (long subparam, String locale) {
+    setValue(subparam, locale);
   }
 }

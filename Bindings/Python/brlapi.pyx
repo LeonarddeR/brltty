@@ -5,6 +5,8 @@ The reference C API documentation is available online http://brltty.app/doc/BrlA
 
 This documentation is only a python helper, you should also read C manual pages.
 
+A general introduction guide is available online https://brltty.app/doc/Manual-BrlAPI/English/BrlAPI.html
+
 Example : 
 import brlapi
 import errno
@@ -72,6 +74,15 @@ try:
   b.readKey()
 
   b.ignoreAllKeys()
+  b.acceptKeyRanges([(brlapi.KEY_TYPE_CMD, brlapi.KEY_TYPE_CMD|brlapi.KEY_CODE_MASK)])
+  b.ignoreKeyRanges([(brlapi.KEY_TYPE_CMD|brlapi.KEY_CMD_PASSDOTS, brlapi.KEY_TYPE_CMD|brlapi.KEY_CMD_PASSDOTS|brlapi.KEY_CMD_ARG_MASK)])
+  b.writeText("Press any command key (and not dots)")
+  k = b.readKey()
+  k = brlapi.expandKeyCode(key)
+  b.writeText("Key %ld (%x %x %x %x) !" % (key, k["type"], k["command"], k["argument"], k["flags"]))
+  b.readKey()
+
+  b.ignoreAllKeys()
   b.acceptKeyRanges([(brlapi.KEY_TYPE_CMD|brlapi.KEY_CMD_PASSDOTS, brlapi.KEY_TYPE_CMD|brlapi.KEY_CMD_PASSDOTS|brlapi.KEY_CMD_ARG_MASK)])
   b.writeText("Press a dot key")
   key = b.readKey()
@@ -101,7 +112,7 @@ except brlapi.ConnectionError as e:
 ###############################################################################
 # libbrlapi - A library providing access to braille terminals for applications.
 #
-# Copyright (C) 2005-2023 by
+# Copyright (C) 2005-2025 by
 #   Alexis Robert <alexissoft@free.fr>
 #   Samuel Thibault <Samuel.Thibault@ens-lyon.org>
 #
@@ -531,7 +542,9 @@ cdef class Connection:
 
 		* tty : If tty >= 0, application takes control of the specified tty
 			If tty == TTY_DEFAULT, the library first tries to get the tty number from the WINDOWID environment variable (form xterm case), then the CONTROLVT variable, and at last reads /proc/self/stat (on linux)
-		* driver : Tells how the application wants readKey() to return key presses. None or "" means BrlTTY commands are required, whereas a driver name means that raw key codes returned by this driver are expected."""
+		* driver : Tells how the application wants readKey() to return key presses. None or "" means BrlTTY commands are required, whereas a driver name means that raw key codes returned by this driver are expected.
+
+		If the application does not want to take control of a particular tty, but keep control on all ttys, brlapi_enterTtyModeWithPath should be called instead with path equal to []. This is usually what a screen reader wants to use."""
 		cdef int retval
 		cdef int c_tty
 		cdef char *c_driver

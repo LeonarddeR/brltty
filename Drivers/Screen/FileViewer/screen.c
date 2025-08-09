@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -26,16 +26,25 @@
 #include "log.h"
 #include "alert.h"
 #include "strfmt.h"
+#include "parse.h"
 #include "utf8.h"
 #include "brl_cmds.h"
 #include "embed.h"
 
 typedef enum {
   PARM_FILE,
+  PARM_SHOW,
 } ScreenParameters;
 
-#define SCRPARMS "file"
+#define SCRPARMS "file", "show"
 #include "scr_driver.h"
+
+#include <term.h>
+#include <stdio.h>
+
+#include "get_curses.h"
+
+static unsigned int showOnTerminal = 0;
 
 static const char *filePath;
 static wchar_t *fileCharacters;
@@ -52,25 +61,21 @@ static unsigned int lineCount;
 static int screenWidth;
 static int cursorOffset;
 
-static void
-destruct_FileViewerScreen (void) {
-  brlttyDisableInterrupt();
-
-  if (lineDescriptors) {
-    free(lineDescriptors);
-    lineDescriptors = NULL;
-  }
-
-  if (fileCharacters) {
-    free(fileCharacters);
-    fileCharacters = NULL;
-  }
-}
-
 static int
 processParameters_FileViewerScreen (char **parameters) {
   filePath = parameters[PARM_FILE];
   if (filePath && !*filePath) filePath = NULL;
+
+  showOnTerminal = 0;
+  {
+    const char *parameter = parameters[PARM_SHOW];
+
+    if (parameter && *parameter) {
+      if (!validateYesNo(&showOnTerminal, parameter)) {
+        logMessage(LOG_WARNING, "%s: %s", "invalid show setting", parameter);
+      }
+    }
+  }
 
   return 1;
 }
@@ -188,6 +193,151 @@ loadFile (void) {
 }
 
 static int
+toScreenRow (int offset) {
+  return offset / screenWidth;
+}
+
+static int
+toScreenColumn (int offset) {
+  return offset % screenWidth;
+}
+
+#ifdef GOT_CURSES
+static int terminalInitialized = 0;
+
+static void
+writeTerminalString (const char *string) {
+  if (string) {
+    putp(string);
+  }
+}
+
+static void
+writeTerminalCapability0 (const char *name) {
+  writeTerminalString(tigetstr(name));
+}
+
+static void
+writeTerminalCapability2 (const char *name, int p1, int p2) {
+  writeTerminalString(tiparm(tigetstr(name), p1, p2));
+}
+
+static void
+clearTerminalScreen (void) {
+  writeTerminalCapability0("clear");
+}
+
+static void
+placeTerminalCursor (int row, int column) {
+  writeTerminalCapability2("cup", row, column);
+}
+
+static void
+refreshTerminalScreen (int oldOffset) {
+  if (terminalInitialized) {
+    int newRow = toScreenRow(cursorOffset);
+    int newFrom = (newRow / lines) * lines;
+    int refresh = oldOffset < 0;
+
+    if (!refresh) {
+      int oldRow = toScreenRow(oldOffset);
+      int oldFrom = (oldRow / lines) * lines;
+      if (newFrom != oldFrom) refresh = 1;
+    }
+
+    if (refresh) {
+      clearTerminalScreen();
+
+      int to = newFrom + lines;
+      if (to > lineCount) to = lineCount;
+
+      const LineDescriptor *line = &lineDescriptors[newFrom];
+      const LineDescriptor *lineEnd = &lineDescriptors[to];
+      int row = 0;
+
+      while (line < lineEnd) {
+        placeTerminalCursor(row, 0);
+
+        unsigned int count = line->length;
+        int tooLong = count > columns;
+        if (tooLong) count = columns - 1;
+
+        {
+          const wchar_t *wc = &fileCharacters[line->offset];
+          const wchar_t *wcEnd = wc + count;
+
+          while (wc < wcEnd) {
+            Utf8Buffer utf8;
+            convertCodepointToUtf8(*wc++, utf8);
+            writeTerminalString(utf8);
+          }
+        }
+
+        if (tooLong) {
+          static Utf8Buffer ellipsis = {0};
+          if (!ellipsis[0]) convertCodepointToUtf8(0X2026, ellipsis);
+          writeTerminalString(ellipsis);
+        }
+
+        row += 1;
+        line += 1;
+      }
+    }
+
+    int column = toScreenColumn(cursorOffset);
+    if (column >= columns) column = columns - 1;
+    placeTerminalCursor((newRow - newFrom), column);
+    fflush(stdout);
+  }
+}
+
+static int
+beginTerminal (void) {
+  const char *problem = "terminal initialization failure";
+
+  if (isatty(STDOUT_FILENO)) {
+    int error;
+    int result = setupterm(NULL, STDOUT_FILENO, &error);
+    int initialized = result == OK;
+
+    if (initialized) {
+      writeTerminalCapability2("csr", 0, lines-1);
+      writeTerminalCapability0("smcup");
+
+      logMessage(
+        LOG_CATEGORY(SCREEN_DRIVER),
+        "terminal successfully initialized"
+      );
+
+      return 1;
+    }
+
+    if (result == ERR) {
+      if (error == 0) {
+        problem = "terminal is generic";
+      } else if (error == 1) {
+        problem = "terminal is hardcopy";
+      } else if (error == -1) {
+        problem = "terminfo database not found";
+      }
+    }
+  } else {
+    problem = "standard output isn't a terminal";
+  }
+
+  logMessage(LOG_WARNING, "%s", problem);
+  return 0;
+}
+
+static void
+endTerminal (void) {
+  clearTerminalScreen();
+  writeTerminalCapability0("rmcup");
+  reset_shell_mode();
+}
+#endif /* GOT_CURSES */
+
+static int
 construct_FileViewerScreen (void) {
   fileCharacters = NULL;
 
@@ -196,11 +346,37 @@ construct_FileViewerScreen (void) {
   lineCount = 0;
 
   screenWidth = 0;
+  loadFile();
   cursorOffset = 0;
 
-  loadFile();
+  if (showOnTerminal) {
+    #ifdef GOT_CURSES
+    terminalInitialized = beginTerminal();
+    refreshTerminalScreen(-1);
+    #endif /* GOT_CURSES */
+  }
+
   brlttyEnableInterrupt();
   return 1;
+}
+
+static void
+destruct_FileViewerScreen (void) {
+  brlttyDisableInterrupt();
+
+  #ifdef GOT_CURSES
+  if (terminalInitialized) endTerminal();
+  #endif /* GOT_CURSES */
+
+  if (lineDescriptors) {
+    free(lineDescriptors);
+    lineDescriptors = NULL;
+  }
+
+  if (fileCharacters) {
+    free(fileCharacters);
+    fileCharacters = NULL;
+  }
 }
 
 static int
@@ -211,16 +387,6 @@ poll_FileViewerScreen (void) {
 static int
 refresh_FileViewerScreen (void) {
   return 1;
-}
-
-static int
-toScreenRow (int offset) {
-  return offset / screenWidth;
-}
-
-static int
-toScreenColumn (int offset) {
-  return offset % screenWidth;
 }
 
 static void
@@ -255,6 +421,19 @@ readCharacters_FileViewerScreen (const ScreenBox *box, ScreenCharacter *buffer) 
   return 0;
 }
 
+static void
+placeCursor (int newOffset) {
+  int oldOffset = cursorOffset;
+
+  if (newOffset != oldOffset) {
+    cursorOffset = newOffset;
+
+    #ifdef GOT_CURSES
+    refreshTerminalScreen(oldOffset);
+    #endif /* GOT_CURSES */
+  }
+}
+
 static int
 toScreenOffset (int row, int column) {
   return (row * screenWidth) + column;
@@ -262,7 +441,7 @@ toScreenOffset (int row, int column) {
 
 static int
 routeCursor_FileViewerScreen (int column, int row, int screen) {
-  cursorOffset = toScreenOffset(row, column);
+  placeCursor(toScreenOffset(row, column));
   return 1;
 }
 
@@ -271,7 +450,7 @@ moveCursor (int amount) {
   int newOffset = cursorOffset + amount;
 
   if ((newOffset >= 0) && (newOffset < (lineCount * screenWidth))) {
-    cursorOffset = newOffset;
+    placeCursor(newOffset);
   } else {
     alert(ALERT_COMMAND_REJECTED);
   }
@@ -301,7 +480,7 @@ findPreviousParagraph (void) {
 
     if (isBlank != wasBlank) {
       if ((wasBlank = isBlank)) {
-        cursorOffset = toScreenOffset(row+1, 0);
+        placeCursor(toScreenOffset(row+1, 0));
         return;
       }
     }
@@ -310,7 +489,7 @@ findPreviousParagraph (void) {
   if (wasBlank) {
     alert(ALERT_COMMAND_REJECTED);
   } else {
-    cursorOffset = toScreenOffset(row, 0);
+    placeCursor(toScreenOffset(row, 0));
   }
 }
 
@@ -324,7 +503,7 @@ findNextParagraph (void) {
 
     if (isBlank != wasBlank) {
       if (!(wasBlank = isBlank)) {
-        cursorOffset = toScreenOffset(row, 0);
+        placeCursor(toScreenOffset(row, 0));
         return;
       }
     }
@@ -337,7 +516,9 @@ findNextParagraph (void) {
 
 static int
 handleCommand_FileViewerScreen (int command) {
-  switch (command) {
+  int hasControl = command & BRL_FLG_INPUT_CONTROL;
+
+  switch (command & BRL_MSK_CMD) {
     case BRL_CMD_KEY(ESCAPE):
       brlttyInterrupt(WAIT_STOP);
       return 1;
@@ -366,13 +547,36 @@ handleCommand_FileViewerScreen (int command) {
       findNextParagraph();
       return 1;
 
-    case BRL_CMD_KEY(HOME):
-      cursorOffset = 0;
-      return 1;
+    case BRL_CMD_KEY(HOME): {
+      if (hasControl) {
+        placeCursor(0);
+      } else {
+        moveCursor(-toScreenColumn(cursorOffset));
+      }
 
-    case BRL_CMD_KEY(END):
-      cursorOffset = toScreenOffset(lineCount-1, 0);
       return 1;
+    }
+
+    case BRL_CMD_KEY(END): {
+      if (hasControl) {
+        placeCursor(toScreenOffset(lineCount-1, 0));
+      } else {
+        int row = toScreenRow(cursorOffset);
+        const LineDescriptor *line = &lineDescriptors[row];
+        placeCursor(toScreenOffset(row, (line->length - 1)));
+      }
+
+      return 1;
+    }
+
+    default: {
+      switch (command & BRL_MSK_BLK) {
+        case BRL_CMD_BLK(PASSDOTS):
+        case BRL_CMD_BLK(PASSCHAR):
+          alert(ALERT_COMMAND_REJECTED);
+          return 1;
+      }
+    }
   }
 
   return 0;

@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -260,6 +260,24 @@ verifyMingwCommands() {
    done
 
    return "${result}"
+}
+
+getPythonLocation() {
+   local pythonRootVariable="${1}"
+   local directory="$(getVariable "${pythonRootVariable}")"
+
+   [ -n "${directory}" ] || {
+      local file="${programDirectory}/python-location"
+
+      if [ -f "${file}" ]
+      then
+         read directory <"${file}"
+         [ -n "${directory}" ] || return 1
+         setVariable "${pythonRootVariable}" "${directory}"
+      fi
+   }
+
+   return 0
 }
 
 [ "${MSYSTEM}" = "MINGW32" ] || semanticError "this script is for MinGW only"

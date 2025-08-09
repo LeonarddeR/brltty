@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -71,6 +71,7 @@
 #include "async_io.h"
 #include "async_alarm.h"
 #include "async_event.h"
+#include "unicode.h"
 
 typedef enum {
   PARM_RELEASE,
@@ -93,12 +94,14 @@ static unsigned char typeFlags[TYPE_COUNT];
 static char *curSender;
 static char *curPath;
 static char *curRole;
+static char *curName; /* If not a text widget, at least record some name */
 static ScreenContentQuality curQuality;
 
 static long curNumRows, curNumCols;
 static wchar_t **curRows;
 static long *curRowLengths;
-static long curCaret,curPosX,curPosY;
+static long curCaret; /* In unicode codepoints */
+static long curPosX,curPosY; /* In screen offset */
 
 static DBusConnection *bus = NULL;
 
@@ -371,9 +374,9 @@ send_with_reply_and_block(DBusConnection *bus, DBusMessage *msg, int timeout_ms,
   return reply;
 }
 
-static void findPosition(long position, long *px, long *py) {
-  long offset=0, newoffset, x, y;
-  /* XXX: I don't know what they do with necessary combining accents */
+/* px, py are counting unicode codepoints, psx is counting screen coordinate */
+static void findPosition(long position, long *px, long *py, long *psx) {
+  long offset=0, newoffset, x, y, sx;
   for (y=0; y<curNumRows; y++) {
     if ((newoffset = offset + curRowLengths[y]) > position)
       break;
@@ -392,29 +395,62 @@ static void findPosition(long position, long *px, long *py) {
     }
   } else
     x = position-offset;
-  *px = x;
+
+  /* Process text of the line until the wanted position */
+  for (offset=0, sx=0; offset<x && offset<curRowLengths[y]; offset++) {
+    wchar_t wc = curRows[y][offset];
+
+    if (wc == '\n') continue; /* EOL, ignore */
+
+    if (wc == '\t') {
+      /* Switch to next tab */
+      sx = (sx+1+7)&~7;
+      continue;
+    }
+
+    if (getCharacterWidth(wc) != 0) sx++;
+  }
+
+  if (px) *px = x;
   *py = y;
+  if (psx) *psx = sx;
 }
 
+/* Convert from screen coordinates to unicode codepoints offset */
 static long findCoordinates(long xx, long yy) {
-  long offset=0, y;
-  /* XXX: I don't know what they do with necessary combining accents */
+  long offset=0, x, y, sx;
   if (yy >= curNumRows) {
     return -1;
   }
   for (y=0; y<yy; y++) {
     offset += curRowLengths[y];
   }
-  if (xx >= curRowLengths[y])
-    xx = curRowLengths[y]-1;
-  return offset + xx;
+
+  /* Process text of the line until the wanted position */
+  for (x=0, sx=0; sx<xx && x<curRowLengths[y]; x++) {
+    wchar_t wc = curRows[y][x];
+
+    if (wc == '\n') continue; /* EOL, ignore */
+
+    if (wc == '\t') {
+      /* Switch to next tab */
+      sx = (sx+1+7)&~7;
+      continue;
+    }
+
+    if (getCharacterWidth(wc) != 0) sx++;
+  }
+
+  if (x >= curRowLengths[y])
+    x = curRowLengths[y]-1;
+  return offset+x;
 }
 
 static void caretPosition(long caret) {
   if (caret < 0) {
     caret = 0;
   }
-  findPosition(caret,&curPosX,&curPosY);
+  findPosition(caret,NULL,&curPosY,&curPosX);
   curCaret = caret;
 }
 
@@ -428,6 +464,8 @@ static void finiTerm(void) {
   curPath = NULL;
   free(curRole);
   curRole = NULL;
+  free(curName);
+  curName = NULL;
   curPosX = curPosY = 0;
   if (curRows) {
     for (i=0;i<curNumRows;i++)
@@ -694,14 +732,17 @@ static void restartTerm(const char *sender, const char *path) {
 
 /* Switched to a new object, check whether we want to read it, and if so, restart with it */
 static void tryRestartTerm(const char *sender, const char *path) {
+  if (curName) {
+    free(curName);
+    curName = NULL;
+  }
   if (curPath) finiTerm();
-  restartTerm(sender, path);
 
   curRole = getRole(sender, path);
   logMessage(LOG_CATEGORY(SCREEN_DRIVER),
              "state changed focus to role %s", curRole);
 
-  curQuality = getHasTextInterface(sender, path)? SCQ_POOR: SCQ_NONE;
+  curQuality = getHasTextInterface(sender, path)? SCQ_POOR: SCQ_LOW;
   unsigned char requested = typeFlags[TYPE_ALL];
 
   if (!requested) {
@@ -715,6 +756,28 @@ static void tryRestartTerm(const char *sender, const char *path) {
   }
 
   if (requested) curQuality = SCQ_GOOD;     
+
+  if (curQuality != SCQ_LOW) {
+    restartTerm(sender, path);
+  } else {
+    curName = getName(sender, path);
+    if (curName && !curName[0]) {
+      free(curName);
+      curName = NULL;
+    }
+    if (curName)
+      logMessage(LOG_CATEGORY(SCREEN_DRIVER), "got name %s", curName);
+    else {
+      curName = getRole(sender, path);
+      if (curName)
+	logMessage(LOG_CATEGORY(SCREEN_DRIVER), "got role %s", curName);
+      else {
+	logMessage(LOG_CATEGORY(SCREEN_DRIVER), "did not get name or role");
+	curName = strdup("unknown widget");
+	curQuality = SCQ_NONE;
+      }
+    }
+  }
 }
 
 /* Get the state of an object */
@@ -1018,7 +1081,7 @@ static void AtSpi2HandleEvent(const char *interface, DBusMessage *message)
     if (toDelete <= 0) {
       return;
     }
-    findPosition(detail1,&x,&y);
+    findPosition(detail1,&x,&y,NULL);
     if (dbus_message_iter_get_arg_type(&iter_variant) != DBUS_TYPE_STRING) {
       logMessage(LOG_CATEGORY(SCREEN_DRIVER),
                  "ergl, not string but '%c'", dbus_message_iter_get_arg_type(&iter_variant));
@@ -1078,7 +1141,7 @@ static void AtSpi2HandleEvent(const char *interface, DBusMessage *message)
     if (!curSender || strcmp(sender, curSender) || strcmp(path, curPath)) return;
     logMessage(LOG_CATEGORY(SCREEN_DRIVER),
                "insert %d from %d",detail2,detail1);
-    findPosition(detail1,&x,&y);
+    findPosition(detail1,&x,&y,NULL);
     if (dbus_message_iter_get_arg_type(&iter_variant) != DBUS_TYPE_STRING) {
       logMessage(LOG_CATEGORY(SCREEN_DRIVER),
                  "ergl, not string but '%c'", dbus_message_iter_get_arg_type(&iter_variant));
@@ -1595,7 +1658,7 @@ destruct_AtSpi2Screen (void) {
 
 static int
 currentVirtualTerminal_AtSpi2Screen (void) {
-  return (curPath || !releaseScreen)? 0: SCR_NO_VT;
+  return (curPath || curName || !releaseScreen)? 0: SCR_NO_VT;
 }
 
 static const char msgNotAtSpi [] = "not an AT-SPI2 text widget";
@@ -1624,6 +1687,12 @@ describe_AtSpi2Screen (ScreenDescription *description) {
     description->posx = curPosX;
     description->posy = curPosY;
     description->quality = curQuality;
+  } else if (curName) {
+    description->rows = 1;
+    description->cols = strlen(curName) + 2;
+    description->posx = 0;
+    description->posy = 0;
+    description->quality = curQuality;
   } else {
     const char *message = msgNotAtSpi;
     if (releaseScreen) description->unreadable = message;
@@ -1643,7 +1712,13 @@ readCharacters_AtSpi2Screen (const ScreenBox *box, ScreenCharacter *buffer) {
   clearScreenCharacters(buffer, (box->height * box->width));
 
   if (!curPath) {
-    setScreenMessage(box, buffer, msgNotAtSpi);
+    if (curName) {
+      char msg[strlen(curName)+3];
+      snprintf(msg, sizeof(msg), "[%s]", curName);
+      setScreenMessage(box, buffer, msg);
+    }
+    else
+      setScreenMessage(box, buffer, msgNotAtSpi);
     return 1;
   }
 
@@ -1652,11 +1727,34 @@ readCharacters_AtSpi2Screen (const ScreenBox *box, ScreenCharacter *buffer) {
   if (!validateScreenBox(box, cols, curNumRows)) return 0;
 
   for (unsigned int y=0; y<box->height; y+=1) {
-    if (curRowLengths[box->top+y]) {
-      for (unsigned int x=0; x<box->width; x+=1) {
-        if (box->left+x < curRowLengths[box->top+y] - (curRows[box->top+y][curRowLengths[box->top+y]-1]==WC_C('\n'))) {
-          buffer[y*box->width+x].text = curRows[box->top+y][box->left+x];
+    unsigned length = curRowLengths[box->top+y];
+    unsigned offset; /* Position in unicode codepoints */
+    unsigned sx; /* Position in screen offset */
+    unsigned right = box->left+box->width;
+
+    if (length && curRows[box->top+y][length-1] == WC_C('\n'))
+        /* Do not show trailing \n */
+        length--;
+
+    /* Process text of the line while peeking characters */
+    for (offset=0, sx=0; offset < length && sx<right; offset+=1) {
+      wchar_t wc = curRows[box->top+y][offset];
+
+      if (wc == '\t') {
+        /* Complete with spaces up to next tab */
+        unsigned nexttab = (sx+1+7)&~7;
+        for ( ; sx<nexttab; sx+=1) {
+          if (sx >= box->left && sx<right)
+            buffer[y*box->width+sx-box->left].text = WC_C(' ');
         }
+        continue;
+      }
+
+      /* XXX: Ignoring combining characters */
+      if (getCharacterWidth(wc) != 0) {
+        if (sx >= box->left && sx<right)
+          buffer[y*box->width+sx-box->left].text = wc;
+        sx+=1;
       }
     }
   }
@@ -1699,7 +1797,7 @@ insertKey_AtSpi2Screen (ScreenKey key) {
   if (isSpecialKey(key)) {
     switch (key & SCR_KEY_CHAR_MASK) {
 #ifdef HAVE_X11_KEYSYM_H
-      case SCR_KEY_ENTER:         keysym = XK_KP_Enter;  break;
+      case SCR_KEY_ENTER:         keysym = XK_Return;    break;
       case SCR_KEY_TAB:           keysym = XK_Tab;       break;
       case SCR_KEY_BACKSPACE:     keysym = XK_BackSpace; break;
       case SCR_KEY_ESCAPE:        keysym = XK_Escape;    break;
@@ -1823,6 +1921,9 @@ setSelection_AtSpi2Screen (int beginOffset, int endOffset) {
   dbus_int32_t num = 0;
   dbus_int32_t begin = beginOffset;
   dbus_int32_t end = endOffset;
+
+  if (!curSender)
+    return 0;
 
   msg = new_method_call(curSender, curPath, SPI2_DBUS_INTERFACE_TEXT, "SetSelection");
   if (!msg)

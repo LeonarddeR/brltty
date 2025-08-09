@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -29,6 +29,7 @@
 #include "menu.h"
 #include "menu_prefs.h"
 #include "prefs.h"
+#include "file.h"
 #include "profile.h"
 #include "status_types.h"
 #include "blink.h"
@@ -36,13 +37,14 @@
 #include "brl.h"
 #include "spk.h"
 #include "ttb.h"
-#include "atb.h"
 #include "ctb.h"
+#include "atb.h"
 #include "ktb.h"
 #include "tune.h"
 #include "bell.h"
 #include "leds.h"
 #include "midi.h"
+#include "options.h"
 #include "core.h"
 
 #define PREFS_MENU_ITEM_VARIABLE(name) prefsMenuItemVariable_##name
@@ -677,21 +679,21 @@ makePreferencesMenu (void) {
   }
 
   {
-    SUBMENU(optionsSubmenu, rootMenu, strtext("Menu Options"));
+    SUBMENU(menuSubmenu, rootMenu, strtext("Menu Options"));
 
     {
       NAME(strtext("Show Submenu Sizes"));
-      ITEM(newBooleanMenuItem(optionsSubmenu, &prefs.showSubmenuSizes, &itemName));
+      ITEM(newBooleanMenuItem(menuSubmenu, &prefs.showSubmenuSizes, &itemName));
     }
 
     {
       NAME(strtext("Show Advanced Submenus"));
-      ITEM(newBooleanMenuItem(optionsSubmenu, &prefs.showAdvancedSubmenus, &itemName));
+      ITEM(newBooleanMenuItem(menuSubmenu, &prefs.showAdvancedSubmenus, &itemName));
     }
 
     {
       NAME(strtext("Show All Items"));
-      ITEM(newBooleanMenuItem(optionsSubmenu, &prefs.showAllItems, &itemName));
+      ITEM(newBooleanMenuItem(menuSubmenu, &prefs.showAllItems, &itemName));
     }
   }
 
@@ -1002,6 +1004,11 @@ makePreferencesMenu (void) {
     }
 
     {
+      NAME(strtext("Alternate Paste Mode Enabled"));
+      ITEM(newBooleanMenuItem(inputSubmenu, &prefs.alternatePasteModeEnabled, &itemName));
+    }
+
+    {
       NAME(strtext("Touch Navigation"));
       ITEM(newBooleanMenuItem(inputSubmenu, &prefs.touchNavigation, &itemName));
       TEST(TouchSensitivity);
@@ -1141,6 +1148,12 @@ makePreferencesMenu (void) {
     }
 
     {
+      NAME(strtext("Speak Empty Line"));
+      ITEM(newBooleanMenuItem(autospeakSubmenu, &prefs.autospeakEmptyLine, &itemName));
+      TEST(Autospeak);
+    }
+
+    {
       NAME(strtext("Speak Selected Character"));
       ITEM(newBooleanMenuItem(autospeakSubmenu, &prefs.autospeakSelectedCharacter, &itemName));
       TEST(Autospeak);
@@ -1202,11 +1215,11 @@ makePreferencesMenu (void) {
     }
 
     {
-      static const MenuString strings[] = {
-        [SPK_PUNCTUATION_NONE] = {.label=strtext("None")},
-        [SPK_PUNCTUATION_SOME] = {.label=strtext("Some")},
-        [SPK_PUNCTUATION_ALL] = {.label=strtext("All")},
-      };
+      static MenuString strings[SPK_PUNCTUATION_ALL + 1];
+      strings[SPK_PUNCTUATION_NONE].label = getSpeechPunctuation(SPK_PUNCTUATION_NONE);
+      strings[SPK_PUNCTUATION_SOME].label = getSpeechPunctuation(SPK_PUNCTUATION_SOME);
+      strings[SPK_PUNCTUATION_MOST].label = getSpeechPunctuation(SPK_PUNCTUATION_MOST);
+      strings[SPK_PUNCTUATION_ALL].label = getSpeechPunctuation(SPK_PUNCTUATION_ALL);
 
       NAME(strtext("Speech Punctuation"));
       ITEM(newEnumeratedMenuItem(speechSubmenu, &prefs.speechPunctuation, &itemName, strings));
@@ -1435,6 +1448,28 @@ makePreferencesMenu (void) {
   }
 
   {
+    SUBMENU(toolsSubmenu, rootMenu, strtext("Tools"));
+    setAdvancedSubmenu(toolsSubmenu);
+
+    {
+      NAME(strtext("Restart Braille Driver"));
+      ITEM(newToolMenuItem(toolsSubmenu, &itemName, restartBrailleDriver));
+    }
+
+  #ifdef ENABLE_SPEECH_SUPPORT
+    {
+      NAME(strtext("Restart Speech Driver"));
+      ITEM(newToolMenuItem(toolsSubmenu, &itemName, restartSpeechDriver));
+    }
+  #endif /* ENABLE_SPEECH_SUPPORT */
+
+    {
+      NAME(strtext("Restart Screen Driver"));
+      ITEM(newToolMenuItem(toolsSubmenu, &itemName, restartScreenDriver));
+    }
+  }
+
+  {
     SUBMENU(buildSubmenu, rootMenu, strtext("Build Information"));
     setAdvancedSubmenu(buildSubmenu);
 
@@ -1459,18 +1494,8 @@ makePreferencesMenu (void) {
     }
 
     {
-      NAME(strtext("Configuration Directory"));
-      ITEM(newTextMenuItem(buildSubmenu, &itemName, CONFIGURATION_DIRECTORY));
-    }
-
-    {
       NAME(strtext("Configuration File"));
       ITEM(newTextMenuItem(buildSubmenu, &itemName, CONFIGURATION_FILE));
-    }
-
-    {
-      NAME(strtext("Updatable Directory"));
-      ITEM(newTextMenuItem(buildSubmenu, &itemName, UPDATABLE_DIRECTORY));
     }
 
     {
@@ -1479,8 +1504,13 @@ makePreferencesMenu (void) {
     }
 
     {
-      NAME(strtext("Writable Directory"));
-      ITEM(newTextMenuItem(buildSubmenu, &itemName, WRITABLE_DIRECTORY));
+      NAME(strtext("Configuration Directory"));
+      ITEM(newTextMenuItem(buildSubmenu, &itemName, CONFIGURATION_DIRECTORY));
+    }
+
+    {
+      NAME(strtext("Tables Directory"));
+      ITEM(newTextMenuItem(buildSubmenu, &itemName, TABLES_DIRECTORY));
     }
 
     {
@@ -1489,8 +1519,18 @@ makePreferencesMenu (void) {
     }
 
     {
-      NAME(strtext("Tables Directory"));
-      ITEM(newTextMenuItem(buildSubmenu, &itemName, TABLES_DIRECTORY));
+      NAME(strtext("Helpers Directory"));
+      ITEM(newTextMenuItem(buildSubmenu, &itemName, HELPERS_DIRECTORY));
+    }
+
+    {
+      NAME(strtext("Updatable Directory"));
+      ITEM(newTextMenuItem(buildSubmenu, &itemName, UPDATABLE_DIRECTORY));
+    }
+
+    {
+      NAME(strtext("Writable Directory"));
+      ITEM(newTextMenuItem(buildSubmenu, &itemName, WRITABLE_DIRECTORY));
     }
 
     {
@@ -1500,7 +1540,242 @@ makePreferencesMenu (void) {
   }
 
   {
-    static const MenuString logLevels[] = {
+    SUBMENU(optionsSubmenu, rootMenu, strtext("Command Options"));
+    setAdvancedSubmenu(optionsSubmenu);
+
+    {
+      NAME(strtext("Configuration File"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_configurationFile));
+    }
+
+    {
+      NAME(strtext("Environment Variables"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_environmentVariables));
+    }
+
+    {
+      NAME(strtext("Boot Parameters"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_bootParameters));
+    }
+
+    {
+      NAME(strtext("Preferences File"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_preferencesFile));
+    }
+
+    {
+      NAME(strtext("Override Preferences"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_overridePreferences));
+    }
+
+    {
+      NAME(strtext("Tables Directory"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_tablesDirectory));
+    }
+
+    {
+      NAME(strtext("Drivers Directory"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_driversDirectory));
+    }
+
+    {
+      NAME(strtext("Helpers Directory"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_helpersDirectory));
+    }
+
+    {
+      NAME(strtext("Updatable Directory"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_updatableDirectory));
+    }
+
+    {
+      NAME(strtext("Writable Directory"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_writableDirectory));
+    }
+
+    {
+      NAME(strtext("Locale Directory"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_localeDirectory));
+    }
+
+    {
+      const char *const *directories = getAllOverrideDirectories();
+
+      if (directories) {
+        const char *const *directory = directories;
+        NAME(strtext("Override Directory"));
+
+        while (*directory) {
+          ITEM(newTextMenuItem(optionsSubmenu, &itemName, *directory));
+          directory += 1;
+        }
+      }
+    }
+     
+    {
+      NAME(strtext("Text Table"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_textTable));
+    }
+
+    {
+      NAME(strtext("Contraction Table"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_contractionTable));
+    }
+
+    {
+      NAME(strtext("Attributes Table"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_attributesTable));
+    }
+
+    {
+      NAME(strtext("Keyboard Table"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_keyboardTable));
+    }
+
+    {
+      NAME(strtext("Keyboard Properties"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_keyboardProperties));
+    }
+
+    {
+      NAME(strtext("GUI Keyboard Enabled"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_guiKeyboardEnabled));
+    }
+
+    {
+      NAME(strtext("GUI Keyboard Table"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_guiKeyboardTable));
+    }
+
+    {
+      NAME(strtext("Braille Driver"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_brailleDriver));
+    }
+
+    {
+      NAME(strtext("Braille Parameters"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_brailleParameters));
+    }
+
+    {
+      NAME(strtext("Braille Device"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_brailleDevice));
+    }
+
+    {
+      NAME(strtext("Release Device"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_releaseDevice));
+    }
+
+#ifdef ENABLE_SPEECH_SUPPORT
+    {
+      NAME(strtext("Speech Driver"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_speechDriver));
+    }
+
+    {
+      NAME(strtext("Speech Parameters"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_speechParameters));
+    }
+
+    {
+      NAME(strtext("Quiet If No Braille"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_quietIfNoBraille));
+    }
+
+    {
+      NAME(strtext("Speech Input"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_speechInput));
+    }
+#endif /* ENABLE_SPEECH_SUPPORT */
+
+    {
+      NAME(strtext("Screen Driver"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_screenDriver));
+    }
+
+    {
+      NAME(strtext("Screen Parameters"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_screenParameters));
+    }
+
+#ifdef HAVE_PCM_SUPPORT
+    {
+      NAME(strtext("PCM Device"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_pcmDevice));
+    }
+#endif /* HAVE_PCM_SUPPORT */
+
+#ifdef HAVE_MIDI_SUPPORT
+    {
+      NAME(strtext("MIDI Device"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_midiDevice));
+    }
+#endif /* HAVE_MIDI_SUPPORT */
+
+    {
+      NAME(strtext("Log File"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_logFile));
+    }
+
+    {
+      NAME(strtext("Log to Standard Error"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_logToStandardError));
+    }
+
+    {
+      NAME(strtext("PID File"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_pidFile));
+    }
+
+    {
+      NAME(strtext("No Daemon"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_noDaemon));
+    }
+
+    {
+      NAME(strtext("Privilege Parameters"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_privilegeParameters));
+    }
+
+    {
+      NAME(strtext("Stay Privileged"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_stayPrivileged));
+    }
+
+    {
+      NAME(strtext("Start Message"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_startMessage));
+    }
+
+    {
+      NAME(strtext("Stop Message"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_stopMessage));
+    }
+
+    {
+      NAME(strtext("Prompt Patterns"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_promptPatterns));
+    }
+
+#ifdef ENABLE_API
+    {
+      NAME(strtext("No API"));
+      ITEM(newFlagOptionMenuItem(optionsSubmenu, &itemName, &opt_noApi));
+    }
+
+    {
+      NAME(strtext("API Parameters"));
+      ITEM(newStringOptionMenuItem(optionsSubmenu, &itemName, &opt_apiParameters));
+    }
+#endif /* ENABLE_API */
+  }
+
+  {
+    SUBMENU(logSettingsSubmenu, rootMenu, strtext("Log Settings"));
+    setAdvancedSubmenu(logSettingsSubmenu);
+
+    static const MenuString logLevelNames[] = {
       [LOG_EMERG] = {.label=strtext("Emergency")},
       [LOG_ALERT] = {.label=strtext("Alert")},
       [LOG_CRIT] = {.label=strtext("Critical")},
@@ -1511,26 +1786,23 @@ makePreferencesMenu (void) {
       [LOG_DEBUG] = {.label=strtext("Debug")},
     };
 
-    SUBMENU(internalSubmenu, rootMenu, strtext("Internal Parameters"));
-    setAdvancedSubmenu(internalSubmenu);
-
     {
       NAME(strtext("System Log Level"));
-      ITEM(newEnumeratedMenuItem(internalSubmenu, &systemLogLevel, &itemName, logLevels));
+      ITEM(newEnumeratedMenuItem(logSettingsSubmenu, &systemLogLevel, &itemName, logLevelNames));
     }
 
     {
       NAME(strtext("Standard Error Log Level"));
-      ITEM(newEnumeratedMenuItem(internalSubmenu, &stderrLogLevel, &itemName, logLevels));
+      ITEM(newEnumeratedMenuItem(logSettingsSubmenu, &stderrLogLevel, &itemName, logLevelNames));
     }
 
     {
       NAME(strtext("Category Log Level"));
-      ITEM(newEnumeratedMenuItem(internalSubmenu, &categoryLogLevel, &itemName, logLevels));
+      ITEM(newEnumeratedMenuItem(logSettingsSubmenu, &categoryLogLevel, &itemName, logLevelNames));
     }
 
     {
-      SUBMENU(logCategoriesSubmenu, internalSubmenu, strtext("Log Categories"));
+      SUBMENU(logCategoriesSubmenu, logSettingsSubmenu, strtext("Log Categories"));
       setAdvancedSubmenu(logCategoriesSubmenu);
 
       {
@@ -1565,28 +1837,6 @@ makePreferencesMenu (void) {
           }
         }
       }
-    }
-  }
-
-  {
-    SUBMENU(toolsSubmenu, rootMenu, strtext("Tools"));
-    setAdvancedSubmenu(toolsSubmenu);
-
-    {
-      NAME(strtext("Restart Braille Driver"));
-      ITEM(newToolMenuItem(toolsSubmenu, &itemName, restartBrailleDriver));
-    }
-
-  #ifdef ENABLE_SPEECH_SUPPORT
-    {
-      NAME(strtext("Restart Speech Driver"));
-      ITEM(newToolMenuItem(toolsSubmenu, &itemName, restartSpeechDriver));
-    }
-  #endif /* ENABLE_SPEECH_SUPPORT */
-
-    {
-      NAME(strtext("Restart Screen Driver"));
-      ITEM(newToolMenuItem(toolsSubmenu, &itemName, restartScreenDriver));
     }
   }
 

@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -165,7 +165,7 @@ typedef enum {
   
   /* miscellaneous */
   BRL_CMD_CSRJMP_VERT /* bring screen cursor to current line */,
-  BRL_CMD_PASTE /* insert clipboard text after screen cursor */,
+  BRL_CMD_PASTE /* insert the clipboard content before the screen cursor */,
   BRL_CMD_RESTARTBRL /* restart braille driver */,
   BRL_CMD_RESTARTSPEECH /* restart speech driver */,
 
@@ -240,7 +240,7 @@ typedef enum {
   BRL_CMD_TXTSEL_ALL /* select all of the text */,
   BRL_CMD_HOST_COPY /* copy selected text to host clipboard */,
   BRL_CMD_HOST_CUT /* cut selected text to host clipboard */,
-  BRL_CMD_HOST_PASTE /* insert host clipboard text after screen cursor */,
+  BRL_CMD_HOST_PASTE /* insert the host clipboard text before the screen cursor */,
 
   BRL_CMD_GUI_TITLE /* show the window title */,
   BRL_CMD_GUI_BRL_ACTIONS /* open the braille actions window */,
@@ -269,6 +269,9 @@ typedef enum {
   BRL_CMD_COMPBRL6 /* set six/eight dot computer braille */,
 
   BRL_CMD_PREFRESET /* reset preferences to defaults */,
+  BRL_CMD_ASPK_EMP_LINE /* set autospeak empty line on/off */,
+  BRL_CMD_SPK_PUNCT_LEVEL /* cycle speech punctuation level */,
+  BRL_CMD_PASTE_ALTMODE /* insert the clipboard content before the screen cursor using the alternate paste mode */,
 
   BRL_basicCommandCount /* must be last */
 } BRL_BasicCommand;
@@ -296,7 +299,7 @@ typedef enum {
   BRL_BLK_NXDIFCHAR /* go down to nearest line with different character */,
   BRL_BLK_CLIP_COPY /* copy characters to clipboard */,
   BRL_BLK_CLIP_APPEND /* append characters to clipboard */,
-  BRL_BLK_PASTE_HISTORY /* insert clipboard history entry after screen cursor */,
+  BRL_BLK_PASTE_HISTORY /* insert a clipboard history entry before the screen cursor */,
   BRL_BLK_SET_TEXT_TABLE /* set text table */,
   BRL_BLK_SET_ATTRIBUTES_TABLE /* set attributes table */,
   BRL_BLK_SET_CONTRACTION_TABLE /* set contraction table */,
@@ -307,7 +310,7 @@ typedef enum {
   BRL_BLK_TXTSEL_START /* start text selection */,
   BRL_BLK_TXTSEL_SET /* set text selection */,
   BRL_BLK_ROUTE_SPEECH /* bring speech cursor to character */,
-  BRL_BLK_1D /* (reserved) */,
+  BRL_BLK_PASTE_HISTORY_ALTMODE /* insert a clipboard history entry before the screen cursor using the alternate paste mode */,
   BRL_BLK_SELECTVT /* bind to specific virtual terminal */,
   BRL_BLK_ALERT /* render an alert */,
   BRL_BLK_PASSKEY /* (emulate special key) */,
@@ -356,13 +359,14 @@ typedef enum {
 #define BRL_FLG_MOTION_SCALED 0X080000 /* scale arg=0X00-0XFF to screen height */
 #define BRL_FLG_MOTION_TOLEFT 0X100000 /* go to beginning of line */
 
-#define BRL_FLG_INPUT_SHIFT   0X010000 /* shift key pressed */
-#define BRL_FLG_INPUT_UPPER   0X020000 /* convert to uppercase */
-#define BRL_FLG_INPUT_CONTROL 0X040000 /* control key pressed */
-#define BRL_FLG_INPUT_META    0X080000 /* meta (left alt) key pressed */
-#define BRL_FLG_INPUT_ALTGR   0X100000 /* altgr (right alt) key pressed */
-#define BRL_FLG_INPUT_GUI     0X200000 /* gui (windows) key pressed */
-#define BRL_FLG_INPUT_ESCAPED 0X400000 /* prefix with escape */
+#define BRL_FLG_INPUT_SHIFT    0X010000 /* shift key pressed */
+#define BRL_FLG_INPUT_UPPER    0X020000 /* convert to uppercase */
+#define BRL_FLG_INPUT_CONTROL  0X040000 /* control key pressed */
+#define BRL_FLG_INPUT_META     0X080000 /* meta (left alt) key pressed */
+#define BRL_FLG_INPUT_ALTGR    0X100000 /* altgr (right alt) key pressed */
+#define BRL_FLG_INPUT_GUI      0X200000 /* gui (windows) key pressed */
+#define BRL_FLG_INPUT_ESCAPED  0X400000 /* prefix with escape */
+#define BRL_FLG_INPUT_CAPSLOCK 0X800000 /* capslock key pressed */
 
 #define BRL_FLG_KBD_RELEASE 0X010000 /* it is a release scan code */
 #define BRL_FLG_KBD_EMUL0   0X020000 /* it is an emulation 0 scan code */

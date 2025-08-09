@@ -1,7 +1,7 @@
 /*
  * libbrlapi - A library providing access to braille terminals for applications.
  *
- * Copyright (C) 2006-2023 by
+ * Copyright (C) 2006-2025 by
  *   Samuel Thibault <Samuel.Thibault@ens-lyon.org>
  *   Sébastien Hinderer <Sebastien.Hinderer@ens-lyon.org>
  *
@@ -36,8 +36,8 @@ public class CursorBlinkPeriodParameter extends GlobalParameter implements Param
   }
 
   @Override
-  public final void set (int period) {
-    setValue(new int[] {period});
+  public final void set (long subparam, int period) {
+    setValue(subparam, new int[] {period});
   }
 
   @Override

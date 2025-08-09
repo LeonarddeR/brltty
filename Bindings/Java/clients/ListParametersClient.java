@@ -1,7 +1,7 @@
 /*
  * libbrlapi - A library providing access to braille terminals for applications.
  *
- * Copyright (C) 2006-2023 by
+ * Copyright (C) 2006-2025 by
  *   Samuel Thibault <Samuel.Thibault@ens-lyon.org>
  *   Sébastien Hinderer <Sebastien.Hinderer@ens-lyon.org>
  *
@@ -53,6 +53,8 @@ public class ListParametersClient extends Client {
 
       for (Parameter parameter : parameterArray) {
         if (parameter.isHidable()) continue;
+        if (parameter.hasSubparam()) continue;
+
         String value = parameter.toString();
         if (value != null) printf("%s: %s\n", parameter.getLabel(), value);
       }
@@ -61,8 +63,16 @@ public class ListParametersClient extends Client {
       String value;
 
       if (subparamValue == null) {
+        if (parameter.hasSubparam()) {
+          throw new SemanticException("subparam not specified: %s", parameter.getName());
+        }
+
         value = parameter.toString();
       } else {
+        if (!parameter.hasSubparam()) {
+          throw new SemanticException("has no subparam: %s", parameter.getName());
+        }
+
         long subparam = subparamValue;
         value = parameter.toString(subparam);
       }

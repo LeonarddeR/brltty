@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -158,28 +158,10 @@ getProgramDirectory (void) {
 }
 
 int
-fixInstallPath (char **path) {
+toAbsoluteInstallPath (char **path) {
   const char *programDirectory = getProgramDirectory();
   if (!programDirectory) programDirectory = CURRENT_DIRECTORY_NAME;
-
-  const char *problem = strtext("cannot fix install path");
-  char *newPath = makePath(programDirectory, *path);
-
-  if (newPath) {
-    if (changeStringSetting(path, newPath)) {
-      if (isAbsolutePath(*path)) {
-        problem = NULL;
-      } else {
-        problem = strtext("install path not absolute");
-      }
-    }
-
-    free(newPath);
-  }
-
-  if (!problem) return 1;
-  logMessage(LOG_WARNING, "%s: %s", gettext(problem), *path);
-  return 0;
+  return anchorRelativePath(path, programDirectory);
 }
 
 char *
@@ -187,21 +169,6 @@ makeProgramPath (const char *name) {
    const char *directory = getProgramDirectory();
    if (!directory) return NULL;
    return makePath(directory, name);
-}
-
-char *
-makeCommandPath (const char *name) {
-  char *path = NULL;
-  char *directory = NULL;
-
-  if (changeStringSetting(&directory, COMMANDS_DIRECTORY)) {
-    if (fixInstallPath(&directory)) {
-      path = makePath(directory, name);
-    }
-  }
-
-  if (directory) free(directory);
-  return path;
 }
 
 int

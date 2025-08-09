@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -24,6 +24,7 @@
 
 #include "log.h"
 #include "alert.h"
+#include "message.h"
 #include "cmd_queue.h"
 #include "cmd_utils.h"
 #include "cmd_clipboard.h"
@@ -34,6 +35,7 @@
 #include "file.h"
 #include "datafile.h"
 #include "utf8.h"
+#include "ascii.h"
 #include "core.h"
 
 typedef struct {
@@ -42,7 +44,7 @@ typedef struct {
   struct {
     int column;
     int row;
-    int offset;
+    size_t offset;
   } begin;
 } ClipboardCommandData;
 
@@ -52,20 +54,16 @@ cpbReadScreen (ClipboardCommandData *ccd, size_t *length, int fromColumn, int fr
   int columns = toColumn - fromColumn + 1;
   int rows = toRow - fromRow + 1;
 
-  if ((columns >= 1) && (rows >= 1) && (ccd->begin.offset >= 0)) {
+  if ((columns >= 1) && (rows >= 1)) {
     wchar_t fromBuffer[rows * columns];
 
     if (readScreenText(fromColumn, fromRow, columns, rows, fromBuffer)) {
       wchar_t toBuffer[rows * (columns + 1)];
       wchar_t *toAddress = toBuffer;
-
       const wchar_t *fromAddress = fromBuffer;
-      int row;
 
-      for (row=fromRow; row<=toRow; row+=1) {
-        int column;
-
-        for (column=fromColumn; column<=toColumn; column+=1) {
+      for (int row=fromRow; row<=toRow; row+=1) {
+        for (int column=fromColumn; column<=toColumn; column+=1) {
           wchar_t character = *fromAddress++;
           if (iswcntrl(character) || iswspace(character)) character = WC_C(' ');
           *toAddress++ = character;
@@ -88,49 +86,31 @@ cpbReadScreen (ClipboardCommandData *ccd, size_t *length, int fromColumn, int fr
   return newBuffer;
 }
 
-static int
-cpbEndOperation (ClipboardCommandData *ccd, const wchar_t *characters, size_t length,
-                 int insertCR) {
-  lockMainClipboard();
-    if (insertCR && ccd->begin.offset >= 1) {
-      size_t length;
-      const wchar_t *characters = getClipboardContent(ccd->clipboard, &length);
-      if (length > ccd->begin.offset) length = ccd->begin.offset;
-      while (length > 0) {
-        size_t last = length - 1;
-        if (characters[last] == WC_C('\r')) insertCR = 0;
-        if (characters[last] != WC_C(' ')) break;
-        length = last;
-      }
-      ccd->begin.offset = length;
-    }
-    if (ccd->begin.offset <= 0) insertCR = 0;
-
-    int truncated = truncateClipboardContent(ccd->clipboard, ccd->begin.offset);
-    if (insertCR) appendClipboardContent(ccd->clipboard, &(wchar_t){WC_C('\r')}, 1);
-    int appended = appendClipboardContent(ccd->clipboard, characters, length);
-  unlockMainClipboard();
-
-  if (truncated || appended) onMainClipboardUpdated();
-  if (!appended) return 0;
-  alert(ALERT_CLIPBOARD_END);
-  return 1;
-}
-
 static void
-cpbBeginOperation (ClipboardCommandData *ccd, int column, int row) {
+cpbBeginOperation (ClipboardCommandData *ccd, int column, int row, int append) {
   ccd->begin.column = column;
   ccd->begin.row = row;
-
-  lockMainClipboard();
-    ccd->begin.offset = getClipboardContentLength(ccd->clipboard);
-  unlockMainClipboard();
-
+  ccd->begin.offset = append? getClipboardContentLength(ccd->clipboard): 0;
   alert(ALERT_CLIPBOARD_BEGIN);
 }
 
 static int
+cpbEndOperation (ClipboardCommandData *ccd, const wchar_t *characters, size_t length, int insertCR) {
+  lockMainClipboard();
+  int copied = copyClipboardContent(ccd->clipboard, characters, length, ccd->begin.offset, insertCR);
+  unlockMainClipboard();
+
+  if (!copied) return 0;
+  alert(ALERT_CLIPBOARD_END);
+  onMainClipboardUpdated();
+  return 1;
+}
+
+static int
 cpbRectangularCopy (ClipboardCommandData *ccd, int column, int row) {
+  if (row < ccd->begin.row) return 0;
+  if (column < ccd->begin.column) return 0;
+
   int copied = 0;
   size_t length;
   wchar_t *buffer = cpbReadScreen(ccd, &length, ccd->begin.column, ccd->begin.row, column, row);
@@ -178,6 +158,9 @@ cpbRectangularCopy (ClipboardCommandData *ccd, int column, int row) {
 
 static int
 cpbLinearCopy (ClipboardCommandData *ccd, int column, int row) {
+  if (row < ccd->begin.row) return 0;
+  if ((row == ccd->begin.row) && (column < ccd->begin.column)) return 0;
+
   int copied = 0;
   ScreenDescription screen;
   describeScreen(&screen);
@@ -261,46 +244,95 @@ cpbLinearCopy (ClipboardCommandData *ccd, int column, int row) {
 
 static int
 pasteCharacters (const wchar_t *characters, size_t count) {
-  if (!characters) return 0;
-  if (!count) return 0;
+  const wchar_t *character = characters;
+  const wchar_t *end = character + count;
 
-  if (!isMainScreen()) return 0;
-  if (isRouting()) return 0;
-
-  {
-    unsigned int i;
-
-    for (i=0; i<count; i+=1) {
-      if (!insertScreenKey(characters[i])) return 0;
-    }
+  while (character < end) {
+    if (!insertScreenKey(*character++)) return 0;
   }
 
   return 1;
 }
 
 static int
-cpbPaste (ClipboardCommandData *ccd, unsigned int index) {
-  int pasted;
+cpbPaste (ClipboardCommandData *ccd, unsigned int index, int useAlternateMode) {
+  if (!isMainScreen()) return 0;
+  if (isRouting()) return 0;
 
-  lockMainClipboard();
-    const wchar_t *characters;
-    size_t length;
+  if (!prefs.alternatePasteModeEnabled) useAlternateMode = 0;
+  int bracketed;
 
-    if (index) {
-      characters = getClipboardHistory(ccd->clipboard, index-1, &length);
-    } else {
-      characters = getClipboardContent(ccd->clipboard, &length);
+  {
+    ScreenPasteMode mode = getScreenPasteMode();
+
+    switch (mode) {
+      case SPM_UNKNOWN:
+        bracketed = useAlternateMode;
+        break;
+
+      case SPM_BRACKETED:
+        bracketed = !useAlternateMode;
+        break;
+
+      default:
+        logMessage(LOG_WARNING, "unexpected screen paste mode: %d", mode);
+        /* fall through */
+      case SPM_PLAIN:
+        bracketed = 0;
+        break;
     }
+  }
 
+  int pasted = 0;
+  lockMainClipboard();
+
+  const wchar_t *characters;
+  size_t length;
+
+  if (index) {
+    characters = getClipboardHistory(ccd->clipboard, index-1, &length);
+  } else {
+    characters = getClipboardContent(ccd->clipboard, &length);
+  }
+
+  if (characters) {
     while (length > 0) {
       size_t last = length - 1;
-      if (characters[last] != WC_C(' ')) break;
+      if (!iswspace(characters[last])) break;
       length = last;
     }
 
-    pasted = pasteCharacters(characters, length);
-  unlockMainClipboard();
+    if (length > 0) {
+      if (bracketed) {
+        static const wchar_t sequence[] = {
+          ASCII_ESC, WC_C('['), WC_C('2'), WC_C('0'), WC_C('0'), WC_C('~')
+        };
 
+        if (!pasteCharacters(sequence, ARRAY_COUNT(sequence))) {
+          goto PASTE_FAILED;
+        }
+      }
+
+      if (!pasteCharacters(characters, length)) {
+        goto PASTE_FAILED;
+      }
+
+      if (bracketed) {
+        static const wchar_t sequence[] = {
+          ASCII_ESC, WC_C('['), WC_C('2'), WC_C('0'), WC_C('1'), WC_C('~')
+        };
+
+        if (!pasteCharacters(sequence, ARRAY_COUNT(sequence))) {
+          goto PASTE_FAILED;
+        }
+      }
+    }
+
+    pasted = 1;
+  }
+
+PASTE_FAILED:
+  unlockMainClipboard();
   return pasted;
 }
 
@@ -456,9 +488,21 @@ handleClipboardCommands (int command, void *data) {
   ClipboardCommandData *ccd = data;
 
   switch (command & BRL_MSK_CMD) {
+    {
+      int useAlternateMode;
+
     case BRL_CMD_PASTE:
-      if (!cpbPaste(ccd, 0)) alert(ALERT_COMMAND_REJECTED);
+      useAlternateMode = 0;
+      goto doPaste;
+
+    case BRL_CMD_PASTE_ALTMODE:
+      useAlternateMode = 1;
+      goto doPaste;
+
+    doPaste:
+      if (!cpbPaste(ccd, 0, useAlternateMode)) alert(ALERT_COMMAND_REJECTED);
       break;
+    }
 
     case BRL_CMD_CLIP_SAVE:
       alert(cpbSave(ccd)? ALERT_COMMAND_DONE: ALERT_COMMAND_REJECTED);
@@ -546,39 +590,40 @@ handleClipboardCommands (int command, void *data) {
     }
 
     default: {
-      int arg = command & BRL_MSK_ARG;
-      int ext = BRL_CODE_GET(EXT, command);
+      int arg1 = BRL_CODE_GET(ARG, command);
+      int arg2 = BRL_CODE_GET(EXT, command);
 
       switch (command & BRL_MSK_BLK) {
         {
-          int clear;
+          int append;
           int column, row;
 
         case BRL_CMD_BLK(CLIP_NEW):
-          clear = 1;
+          append = 0;
           goto doClipBegin;
 
         case BRL_CMD_BLK(CLIP_ADD):
-          clear = 0;
+          append = 1;
           goto doClipBegin;
 
         doClipBegin:
-          if (getCharacterCoordinates(arg, &row, &column, NULL, 0)) {
-            if (clear) clearClipboardContent(ccd->clipboard);
-            cpbBeginOperation(ccd, column, row);
-          } else {
-            alert(ALERT_COMMAND_REJECTED);
+          if (getCharacterCoordinates(arg1, &row, &column, NULL, 0)) {
+            cpbBeginOperation(ccd, column, row, append);
+            break;
           }
 
+          alert(ALERT_COMMAND_REJECTED);
           break;
         }
 
         case BRL_CMD_BLK(COPY_RECT): {
           int column, row;
 
-          if (getCharacterCoordinates(arg, &row, NULL, &column, 1))
-            if (cpbRectangularCopy(ccd, column, row))
+          if (getCharacterCoordinates(arg1, &row, NULL, &column, 1)) {
+            if (cpbRectangularCopy(ccd, column, row)) {
               break;
+            }
+          }
 
           alert(ALERT_COMMAND_REJECTED);
           break;
@@ -587,35 +632,36 @@ handleClipboardCommands (int command, void *data) {
         case BRL_CMD_BLK(COPY_LINE): {
           int column, row;
 
-          if (getCharacterCoordinates(arg, &row, NULL, &column, 1))
-            if (cpbLinearCopy(ccd, column, row))
+          if (getCharacterCoordinates(arg1, &row, NULL, &column, 1)) {
+            if (cpbLinearCopy(ccd, column, row)) {
               break;
+            }
+          }
 
           alert(ALERT_COMMAND_REJECTED);
           break;
         }
 
         {
-          int clear;
+          int append;
 
         case BRL_CMD_BLK(CLIP_COPY):
-          clear = 1;
-          goto doCopy;
+          append = 0;
+          goto doClipCopy;
 
         case BRL_CMD_BLK(CLIP_APPEND):
-          clear = 0;
-          goto doCopy;
+          append = 1;
+          goto doClipCopy;
 
-        doCopy:
-          if (ext > arg) {
+        doClipCopy:
+          if (arg2 > arg1) {
             int column1, row1;
 
-            if (getCharacterCoordinates(arg, &row1, &column1, NULL, 0)) {
+            if (getCharacterCoordinates(arg1, &row1, &column1, NULL, 0)) {
               int column2, row2;
 
-              if (getCharacterCoordinates(ext, &row2, NULL, &column2, 1)) {
-                if (clear) clearClipboardContent(ccd->clipboard);
-                cpbBeginOperation(ccd, column1, row1);
+              if (getCharacterCoordinates(arg2, &row2, NULL, &column2, 1)) {
+                cpbBeginOperation(ccd, column1, row1, append);
                 if (cpbLinearCopy(ccd, column2, row2)) break;
               }
             }
@@ -625,9 +671,21 @@ handleClipboardCommands (int command, void *data) {
           break;
         }
 
+        {
+          int useAlternateMode;
+
         case BRL_CMD_BLK(PASTE_HISTORY):
-          if (!cpbPaste(ccd, arg)) alert(ALERT_COMMAND_REJECTED);
+          useAlternateMode = 0;
+          goto doPasteHistory;
+
+        case BRL_CMD_BLK(PASTE_HISTORY_ALTMODE):
+          useAlternateMode = 1;
+          goto doPasteHistory;
+
+        doPasteHistory:
+          if (!cpbPaste(ccd, arg1, useAlternateMode)) alert(ALERT_COMMAND_REJECTED);
           break;
+        }
 
         default:
           return 0;
@@ -656,7 +714,7 @@ addClipboardCommands (void) {
 
     ccd->begin.column = 0;
     ccd->begin.row = 0;
-    ccd->begin.offset = -1;
+    ccd->begin.offset = 0;
 
     if (pushCommandHandler("clipboard", KTB_CTX_DEFAULT,
                            handleClipboardCommands, destroyClipboardCommandData, ccd)) {

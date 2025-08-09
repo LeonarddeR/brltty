@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -55,9 +55,9 @@ INSTALL_PROGRAM_DIRECTORY = $(INSTALL_ROOT)$(PROGRAM_DIRECTORY)
 install-program-directory:
 	$(INSTALL_DIRECTORY) $(INSTALL_PROGRAM_DIRECTORY)
 
-INSTALL_COMMANDS_DIRECTORY = $(INSTALL_ROOT)$(COMMANDS_DIRECTORY)
-install-commands-directory:
-	$(INSTALL_DIRECTORY) $(INSTALL_COMMANDS_DIRECTORY)
+INSTALL_HELPERS_DIRECTORY = $(INSTALL_ROOT)$(HELPERS_DIRECTORY)
+install-helpers-directory:
+	$(INSTALL_DIRECTORY) $(INSTALL_HELPERS_DIRECTORY)
 
 INSTALL_DRIVERS_DIRECTORY = $(INSTALL_ROOT)$(DRIVERS_DIRECTORY)
 install-drivers-directory:

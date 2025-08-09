@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -17,11 +17,13 @@
 ###############################################################################
 
 # BRLTTY Contraction Table - German (basic contractions)
-# Created by Mario Lang <mlang@delysid.org>.
+# Created by Mario Lang <mlang@tugraz.at>.
 
 include de-g0.ctb
 
 class cst cst
+class e e
+class g g
 class s s
 class t t
 
@@ -40,6 +42,7 @@ before s midendword aus 16-234
 always barrier = shouldn't use the ie-contraction
 always bankier = shouldn't use the ie-contraction
 always famili = familie(n) shouldn't use the ie-contraction
+prfword komödie = shouldn't use the ie-contraction
 endword studie 23456-136-145-24-15 shouldn't use the ie-contraction
 midendword ien = shouldn't use the ie-contraction
 midendword iell = shouldn't use the ie-contraction
@@ -63,24 +66,28 @@ always andalusier = shouldn't use the ie-contraction
 always asthma = shouldn't use the st-contraction
 before t always bundes = shouldn't use the st-contraction
 prfword chemikalie 1456-15-134-24-13-1-123-24-15 shouldn't use the ie-contraction
-always dienstag 145-346-1345-234-2345-1-1245 shouldn't use the st-contraction
-always donnerstag = shouldn't use the st-contraction
+
+before g always diensta 145-346-1345-234-2345-1 shouldn't use the st-contraction
+before g always dienstä 145-346-1345-234-2345-345 shouldn't use the st-contraction
+before g always donnersta = shouldn't use the st-contraction
+before g always donnerstä = shouldn't use the st-contraction
+before g always samsta = shouldn't use the st-contraction
+before g always samstä = shouldn't use the st-contraction
+
 always eschatolog 15-234-1456-1-2345-135-123-135-1245 shouldn't use the sch-contraction
 always esther = shouldn't use the st-contraction
 prfword folie = shouldn't use the ie-contraction
 sufword hoer 125-246-1235 should use the oe-symbol
 always interview = shouldn't use the ie-contraction
 always koffein = shouldn't use the ei-contraction
-always lilie = shouldn't use the ie-contraction
+before e always lili = shouldn't use the ie-contraction
 prfword linie 123-24-1345-24-15 shouldn't use the ie-contraction
-prfword materie = shouldn't use the ie-contraction
 always medien = shouldn't use the ie-contraction
 always museum = shouldn't use the eu-contraction
 always propriet = proprietär shouldn't use the ie-contraction
 always döschen 145-246-234-1456-15-1345
 always höschen 125-246-234-1456-15-1345 should use the ch-contraction
 word röschen 1235-246-234-1456-15-1345 should use the ch-contraction
-always samstag = shouldn't use the st-contraction
 word wisst = shouldn't use the st-contraction
 always vietnam = shouldn't use the ie-contraction
 

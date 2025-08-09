@@ -31,10 +31,9 @@ BrailComm
 BrailleLite
   |18/40/M20/M40@
 BrailleMemo
-  |Pocket (16)@
-  |Smart (16)@
-  |32@
-  |40@
+  |Pocket@
+  |Smart@
+  |Next Touch@
 BrailleNote
   |18/32@
   |Apex@
@@ -72,9 +71,11 @@ HandyTech
   |Active Star 40@
   |Actilino@
   |Activator@
+  |Activator Pro 64/80@
   |Basic Braille 16/20/32/40/48/64/80@
-  |Braillino@
+  |Basic Braille Plus 20/32/40/48/64/80/84@
   |Braille Wave@
+  |Braillino@
   |Easy Braille@
   |Braille Star 40/80@
   |Connect Braille 40@
@@ -84,10 +85,12 @@ Hedo
   |MobilLine@
 HIMS
   |Braille Sense@
+  |BrailleSense 6@
   |SyncBraille@
   |Braille Edge@
   |Smart Beetle@
   |QBrailleXL@
+  |eMotion@
 HumanWare
   |Brailliant BI 14/32/40@
   |Brailliant BI 20X/40X@

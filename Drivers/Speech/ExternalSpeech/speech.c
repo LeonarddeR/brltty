@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -18,7 +18,7 @@
 
 /* ExternalSpeech/speech.c - Speech library (driver)
  * For external programs, using my own protocol. Features indexing.
- * Stéphane Doyon <s.doyon@videotron.ca>
+ * StÃ©phane Doyon <s.doyon@videotron.ca>
  */
 
 #include "prologue.h"
@@ -45,6 +45,12 @@ typedef enum {
 static const char *socketPath = NULL;
 static struct sockaddr_un socketAddress;
 static int socketDescriptor = -1;
+
+static int sendSettings (SpeechSynthesizer *spk);
+static unsigned char volumePercentage;
+static float rateMultiplier;
+static float pitchMultiplier;
+static unsigned char punctuationLevel;
 
 static uint16_t totalCharacterCount;
 #define TRACK_DATA_SIZE 2
@@ -95,7 +101,8 @@ connectToServer (SpeechSynthesizer *spk) {
           if (asyncReadSocket(&trackHandle, sd, TRACK_DATA_SIZE, xsHandleSpeechTrackingInput, spk)) {
             logMessage(LOG_CATEGORY(SPEECH_DRIVER), "connected to server: fd=%d", sd);
             socketDescriptor = sd;
-            return 1;
+            sendSettings(spk);
+            return amConnected();
           }
         }
       } else {
@@ -170,6 +177,137 @@ sendPacket (SpeechSynthesizer *spk, const unsigned char *packet, size_t length) 
   return 1;
 }
 
+static int
+sendByteSetting (SpeechSynthesizer *spk, unsigned char code, unsigned char value) {
+  unsigned char packet[2] = {code, value};
+
+  return sendPacket(spk, packet, sizeof(packet));
+}
+
+static int
+sendMultplierSetting (SpeechSynthesizer *spk, unsigned char code, float value) {
+  unsigned char packet[5] = {code};
+  const unsigned char *v = (const unsigned char *)&value;
+
+#ifdef WORDS_BIGENDIAN
+  packet[1] = v[0];
+  packet[2] = v[1];
+  packet[3] = v[2];
+  packet[4] = v[3];
+#else /* WORDS_BIGENDIAN */
+  packet[1] = v[3];
+  packet[2] = v[2];
+  packet[3] = v[1];
+  packet[4] = v[0];
+#endif /* WORDS_BIGENDIAN */
+
+  return sendPacket(spk, packet, sizeof(packet));
+}
+
+static int
+sendVolumePercentage (SpeechSynthesizer *spk) {
+  return sendByteSetting(spk, 2, volumePercentage);
+}
+
+static int
+sendRateMultiplier (SpeechSynthesizer *spk) {
+  return sendMultplierSetting(spk, 3, (1.0 / rateMultiplier));
+}
+
+static int
+sendPitchMultiplier (SpeechSynthesizer *spk) {
+  return sendMultplierSetting(spk, 5, pitchMultiplier);
+}
+
+static int
+sendPunctuationLevel (SpeechSynthesizer *spk) {
+  return sendByteSetting(spk, 6, punctuationLevel);
+}
+
+static int
+sendSettings (SpeechSynthesizer *spk) {
+  typedef int SendSettingHandler (SpeechSynthesizer *spk);
+
+  static SendSettingHandler *const handlers[] = {
+    sendVolumePercentage,
+    sendRateMultiplier,
+    sendPitchMultiplier,
+    sendPunctuationLevel,
+    NULL
+  };
+
+  {
+    SendSettingHandler *const *handler = handlers;
+
+    while (*handler) {
+      if (!(*handler)(spk)) return 0;
+      handler += 1;
+    }
+  }
+
+  return 1;
+}
+
+static void
+spk_setVolume (SpeechSynthesizer *spk, unsigned char setting) {
+  volumePercentage = getIntegerSpeechVolume(setting, 100);
+
+  logMessage(
+    LOG_CATEGORY(SPEECH_DRIVER),
+    "set volume to %u (%u%%)",
+    setting, volumePercentage
+  );
+
+  sendVolumePercentage(spk);
+}
+
+static void
+spk_setRate (SpeechSynthesizer *spk, unsigned char setting) {
+  rateMultiplier = getFloatSpeechRate(setting); 
+
+  logMessage(
+    LOG_CATEGORY(SPEECH_DRIVER),
+    "set rate to %u (multiplier %f)",
+    setting, rateMultiplier
+  );
+
+  sendRateMultiplier(spk);
+}
+
+static void
+spk_setPitch (SpeechSynthesizer *spk, unsigned char setting) {
+  pitchMultiplier = getFloatSpeechPitch(setting); 
+
+  logMessage(
+    LOG_CATEGORY(SPEECH_DRIVER),
+    "set pitch to %u (multiplier %f)",
+    setting, pitchMultiplier
+  );
+
+  sendPitchMultiplier(spk);
+}
+
+static void
+spk_setPunctuation (SpeechSynthesizer *spk, SpeechPunctuation setting) {
+  punctuationLevel = setting;
+
+  logMessage(
+    LOG_CATEGORY(SPEECH_DRIVER),
+    "set punctuation to %u",
+    setting
+  );
+
+  sendPunctuationLevel(spk);
+}
+
+static void
+spk_mute (SpeechSynthesizer *spk) {
+  logMessage(LOG_CATEGORY(SPEECH_DRIVER), "mute");
+
+  unsigned char packet[] = {1};
+  sendPacket(spk, packet, sizeof(packet));
+}
+
 static void
 spk_say (SpeechSynthesizer *spk, const unsigned char *text, size_t length, size_t count, const unsigned char *attributes) {
   if (!attributes) count = 0;
@@ -190,79 +328,17 @@ spk_say (SpeechSynthesizer *spk, const unsigned char *text, size_t length, size_
   }
 }
 
-static void
-spk_mute (SpeechSynthesizer *spk) {
-  logMessage(LOG_CATEGORY(SPEECH_DRIVER), "mute");
-
-  unsigned char packet[] = {1};
-  sendPacket(spk, packet, sizeof(packet));
-}
-
-static void
-spk_setVolume (SpeechSynthesizer *spk, unsigned char setting) {
-  unsigned char percentage = getIntegerSpeechVolume(setting, 100);
-
-  logMessage(
-    LOG_CATEGORY(SPEECH_DRIVER),
-    "set volume to %u (%u%%)",
-    setting, percentage
-  );
-
-  unsigned char packet[] = {2, percentage};
-  sendPacket(spk, packet, sizeof(packet));
-}
-
-static int
-sendFloatSetting (SpeechSynthesizer *spk, unsigned char code, float value) {
-  unsigned char packet[5] = {code};
-  const unsigned char *v = (const unsigned char *)&value;
-
-#ifdef WORDS_BIGENDIAN
-  packet[1] = v[0];
-  packet[2] = v[1];
-  packet[3] = v[2];
-  packet[4] = v[3];
-#else /* WORDS_BIGENDIAN */
-  packet[1] = v[3];
-  packet[2] = v[2];
-  packet[3] = v[1];
-  packet[4] = v[0];
-#endif /* WORDS_BIGENDIAN */
-
-  return sendPacket(spk, packet, sizeof(packet));
-}
-
-static void
-spk_setRate (SpeechSynthesizer *spk, unsigned char setting) {
-  float stretch = 1.0 / getFloatSpeechRate(setting); 
-
-  logMessage(
-    LOG_CATEGORY(SPEECH_DRIVER),
-    "set rate to %u (time scale %f)",
-    setting, stretch
-  );
-
-  sendFloatSetting(spk, 3, stretch);
-}
-
-static void
-spk_setPitch (SpeechSynthesizer *spk, unsigned char setting) {
-  float multiplier = getFloatSpeechPitch(setting); 
-
-  logMessage(
-    LOG_CATEGORY(SPEECH_DRIVER),
-    "set pitch to %u (multiplier %f)",
-    setting, multiplier
-  );
-
-  sendFloatSetting(spk, 5, multiplier);
-}
-
 static int
 spk_construct (SpeechSynthesizer *spk, char **parameters) {
   spk->setVolume = spk_setVolume;
   spk->setRate = spk_setRate;
   spk->setPitch = spk_setPitch;
+  spk->setPunctuation = spk_setPunctuation;
+
+  volumePercentage = 100;
+  rateMultiplier = 1.0;
+  pitchMultiplier = 1.0;
+  punctuationLevel = 0;
 
   socketPath = parameters[PARM_SOCKET_PATH];
   if (!socketPath || !*socketPath) socketPath = XS_DEFAULT_SOCKET_PATH;

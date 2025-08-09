@@ -79,5 +79,9 @@ task brlttyRemoveMessages (type: Delete) {
 
 brltty.addAssembleTask project, brlttyAddMessages
 brltty.addAssembleTask project, brlttyAddTables
+
+brltty.addConsumerTask(brlttyAddTables, "mergeDebugAssets")
+brltty.addConsumerTask(brlttyAddTables, "mergeReleaseAssets")
+
 clean.dependsOn brlttyRemoveMessages
 clean.dependsOn brlttyRemoveTables

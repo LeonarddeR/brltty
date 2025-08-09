@@ -3,7 +3,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -167,6 +167,7 @@
 #text-table	gon	# Gondi
 #text-table	gu	# Gujarati
 #text-table	he	# Hebrew
+#text-table	he_IL	# Hebrew (Israel)
 #text-table	hi	# Hindi
 #text-table	hr	# Croatian
 #text-table	hu	# Hungarian
@@ -288,7 +289,6 @@
 # BrlAPI Braille Driver Parameters
 #braille-parameters ba:Auth=@CONFIGURATION_DIRECTORY@/@api_authkeyfile@
 #braille-parameters ba:Host=:0
-#braille-parameters ba:SpeechChanges=yes # [yes,no]
 
 # BrailleLite Braille Driver Parameters
 #braille-parameters bl:BaudRate=9600 # [300,600,1200,2400,4800,9600,19200,38400]
@@ -300,6 +300,9 @@
 
 # DotPad Braille Driver Parameters
 #brailledd-parameters dp:Display=default # [default,text,graphic]
+#brailledd-parameters dp:StatusCells=yes # [yes,no]
+#brailledd-parameters dp:HorizontalSpacing=1 # [0-10] (dots)
+#brailledd-parameters dp:VerticalSpacing=2 # [0-10] (dots)
 
 # EuroBraille Braille Driver Parameters
 #braille-parameters eu:Protocol= # [auto,azerbraille,clio,eurobraille,notebraille,pupibraille,scriba,esys,esytime,iris,esysiris]
@@ -429,10 +432,11 @@
 #speech-parameters mp:Pitch=0 # [-10-10]
 
 # SpeechDispatcher Speech Driver Parameters
+#speech-parameters sd:Address= # [address of speech-dispatcher's server]
+#speech-parameters sd:Autospawn= # [yes,no]
 #speech-parameters sd:Language= # [two-letter language code]
 #speech-parameters sd:Module= # [flite,festival,epos-generic,dtk-generic,...]
 #speech-parameters sd:Name= # 
-#speech-parameters sd:Port=6560 # [1-65535]
 #speech-parameters sd:Voice= # [male1,female1,male2,female2,male3,female3,child_male,child_female]
 
 # Swift Speech Driver Parameters
@@ -484,6 +488,11 @@
 #keyboard-properties	Type=any	# [any,ps2,usb,bluetooth,internal]
 #keyboard-properties	Vendor=0X0000	# [0X0000-0XFFFF]
 #keyboard-properties	Product=0X0000	# [0X0000-0XFFFF]
+
+# The gui-keyboard directive enables the handling of keyboard events when
+# using a Linux tty in graphics mode.
+# (can be overridden with the --gui-keyboard= [-g] option)
+#gui-keyboard	off	# [off,on]
 
 
 ##################
@@ -614,6 +623,12 @@
 # (can be overridden with the --drivers-directory= [-D] option)
 #drivers-directory @DRIVERS_DIRECTORY@
 
+# The helpers-directory directive specifies the absolute path to the
+# directory which contains the helper commands. If not
+# specified, @HELPERS_DIRECTORY@ will be used.
+# (can be overridden with the --helpers-directory= [-H] option)
+#helpers-directory @HELPERS_DIRECTORY@
+
 # The tables-directory directive specifies the absolute path to the directory
 # which contains the text, contraction, attributes, keyboard, and input tables.
 # If not specified, "@TABLES_DIRECTORY@" will be used.
@@ -732,11 +747,13 @@
 
 # File Viewer Screen Driver Parameters
 #screen-parameters fv:File=path #
+#screen-parameters fv:show=no # [no,yes]
 
 # Linux Screen Driver Parameters
 #screen-parameters lx:Charset=name+... # []
 #screen-parameters lx:FallbackText=text # ""
 #screen-parameters lx:HFB=auto # [auto,vga,fb,0-7]
+#screen-parameters lx:LargeScreenBug=no # [no,yes]
 #screen-parameters lx:LogSFM=no # [no,yes]
 #screen-parameters lx:RpiSpacesBug=no # [no,yes]
 #screen-parameters lx:Unicode=yes # [yes,no]

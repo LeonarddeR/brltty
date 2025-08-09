@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -28,6 +28,7 @@
 
 #include "program.h"
 #include "cmdline.h"
+#include "options.h"
 #include "log.h"
 #include "spk.h"
 #include "file.h"
@@ -37,8 +38,8 @@
 static char *opt_textString;
 static char *opt_speechVolume;
 static char *opt_speechRate;
-static char *opt_pcmDevice;
-static char *opt_driversDirectory;
+char *opt_pcmDevice;
+char *opt_driversDirectory;
 
 BEGIN_OPTION_TABLE(programOptions)
   { .word = "text-string",
@@ -74,7 +75,7 @@ BEGIN_OPTION_TABLE(programOptions)
     .argument = "directory",
     .setting.string = &opt_driversDirectory,
     .internal.setting = DRIVERS_DIRECTORY,
-    .internal.adjust = fixInstallPath,
+    .internal.adjust = toAbsoluteInstallPath,
     .description = "Path to directory for loading drivers."
   },
 END_OPTION_TABLE(programOptions)

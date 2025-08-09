@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -91,16 +91,6 @@ extern void fillStatusSeparator (wchar_t *text, unsigned char *dots);
 
 extern int writeBrailleText (const char *mode, const char *text);
 extern int showBrailleText (const char *mode, const char *text, int minimumDelay);
-
-extern char *opt_driversDirectory;
-extern char *opt_tablesDirectory;
-extern char *opt_textTable;
-extern char *opt_contractionTable;
-extern char *opt_attributesTable;
-extern char *opt_keyboardTable;
-
-extern char *opt_brailleDevice;
-extern int opt_releaseDevice;
 
 extern int isWordBreak (const ScreenCharacter *characters, int x);
 extern int getWordWrapLength (int row, int from, int count);
@@ -199,7 +189,6 @@ extern int isAllSpaceCharacters (const ScreenCharacter *characters, int count);
 #ifdef ENABLE_SPEECH_SUPPORT
 extern SpeechSynthesizer spk;
 extern int haveSpeechSynthesizer (void);
-extern int opt_quietIfNoBraille;
 
 extern int isAutospeakActive (void);
 extern unsigned int autospeakMinimumScreenContentQuality;

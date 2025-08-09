@@ -1,7 +1,7 @@
 /*
  * libbrlapi - A library providing access to braille terminals for applications.
  *
- * Copyright (C) 2006-2023 by
+ * Copyright (C) 2006-2025 by
  *   Samuel Thibault <Samuel.Thibault@ens-lyon.org>
  *   Sébastien Hinderer <Sebastien.Hinderer@ens-lyon.org>
  *
@@ -59,6 +59,7 @@ public class Parameters extends ParameterComponent {
   public final ComputerBrailleTableParameter computerBrailleTable;
   public final LiteraryBrailleTableParameter literaryBrailleTable;
   public final MessageLocaleParameter messageLocale;
+  public final DriverPropertyValueParameter driverPropertyValue;
 
   public Parameters (ConnectionBase connection) {
     super();
@@ -95,6 +96,7 @@ public class Parameters extends ParameterComponent {
     computerBrailleTable = new ComputerBrailleTableParameter(connection);
     literaryBrailleTable = new LiteraryBrailleTableParameter(connection);
     messageLocale = new MessageLocaleParameter(connection);
+    driverPropertyValue = new DriverPropertyValueParameter(connection);
   }
 
   private final Parameter[] newParameterArray () {

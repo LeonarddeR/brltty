@@ -5,7 +5,7 @@
   * For Android to accept input via BRLTTY from your braille device's keyboard.
 
 ``FOREGROUND_SERVICE``
-  * For creating a foreground notification.
+  * To prevent Android from pausing, killing, etc BRLTTY if there's a resource shortage.
 
 ``WAKE_LOCK``
   * For resetting the Android device's lock timer
@@ -18,7 +18,7 @@
   * For connecting to an already-paried Bluetooth device (API level > 30).
 
 ``BLUETOOTH_SCAN``
-  * For checking if Bluetotoh device discovery is currently active (API level > 30).
+  * For checking if Bluetooth device discovery is currently active (API level > 30).
 
 ``INTERNET``
   * For listening on a TCP/IP port for BrlAPI client connection requests.

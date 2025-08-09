@@ -7,18 +7,20 @@ description = """
 "${project.name}" provides the Java client bindings for "${rootProject.name}" code.
 """
 
-apply from: "brltty.gradle"
+apply from: "brltty-component.gradle"
 
 dependencies {
   api files("src/main/libs/brlapi.jar")
 }
 
 android {
-  compileSdkVersion "android-33"
+  namespace "org.a11y.brlapi"
+
+  compileSdkVersion "android-34"
   buildToolsVersion "29.0.3"
 
   defaultConfig {
-    targetSdkVersion 33
+    targetSdkVersion 34
     minSdkVersion 24
   }
 }
@@ -27,7 +29,7 @@ afterEvaluate {
   publishing {
     publications {
       release(MavenPublication) {
-        from components.release
+        from components.findByName("release")
         groupId = "org.a11y.brltty"
         artifactId = "brlapi-android"
         version = brltty.config.apiRelease

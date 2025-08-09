@@ -1,0 +1,17 @@
+brltty.buildComponent(
+  [ componentName: "api",
+    project: project,
+    makeSubdirectory: brltty.native.javaSubdirectory,
+    jars: ["brlapi"],
+
+    libraries: [
+      "brlapi_java",
+      "brlapi"
+    ],
+
+    librarySubdirectories: [
+      brltty.native.javaSubdirectory,
+      brltty.native.coreSubdirectory
+    ],
+  ]
+)

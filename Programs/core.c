@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -72,6 +72,7 @@
 #include "brl_utils.h"
 #include "prefs.h"
 #include "api_control.h"
+#include "options.h"
 #include "core.h"
 
 #ifdef ENABLE_SPEECH_SUPPORT
@@ -257,6 +258,7 @@ handleUnhandledCommands (int command, void *data) {
 
 static int
 handleApiCommands (int command, void *data) {
+  if (isIneligibleApiCommand(command)) return 0;
   return api.handleCommand(command);
 }
 
@@ -414,8 +416,7 @@ fillStatusSeparator (wchar_t *text, unsigned char *dots) {
     }
 
     {
-      unsigned int row;
-      for (row=0; row<brl.textRows; row+=1) {
+      for (unsigned int row=0; row<brl.textRows; row+=1) {
         *text = textSeparator;
         text += brl.textColumns;
 
@@ -430,22 +431,25 @@ int
 writeBrailleCharacters (const char *mode, const wchar_t *characters, size_t length) {
   wchar_t textBuffer[brl.textColumns * brl.textRows];
 
-  fillTextRegion(textBuffer, brl.buffer,
-                 textStart, textCount, brl.textColumns, brl.textRows,
-                 characters, length);
+  fillTextRegion(
+    textBuffer, brl.buffer, textStart, textCount,
+    brl.textColumns, brl.textRows, characters, length
+  );
 
   {
     size_t modeLength = mode? countUtf8Characters(mode): 0;
     wchar_t modeCharacters[modeLength + 1];
     makeWcharsFromUtf8(mode, modeCharacters, ARRAY_COUNT(modeCharacters));
-    fillTextRegion(textBuffer, brl.buffer,
-                   statusStart, statusCount, brl.textColumns, brl.textRows,
-                   modeCharacters, modeLength);
+
+    fillTextRegion(
+      textBuffer, brl.buffer, statusStart, statusCount,
+      brl.textColumns, brl.textRows, modeCharacters, modeLength
+    );
   }
 
   fillStatusSeparator(textBuffer, brl.buffer);
 
-  return writeBrailleWindow(&brl, textBuffer, 0);
+  return writeBrailleWindow(&brl, textBuffer, SCQ_GOOD);
 }
 
 int
@@ -1019,19 +1023,34 @@ isAutospeakActive (void) {
 
 void
 sayScreenCharacters (const ScreenCharacter *characters, size_t count, SayOptions options) {
-  wchar_t text[count];
-  wchar_t *t = text;
+  wchar_t *textBuffer;
 
-  unsigned char attributes[count];
-  unsigned char *a = attributes;
+  if ((textBuffer = malloc(ARRAY_SIZE(textBuffer, count)))) {
+    unsigned char *attributesBuffer;
 
-  for (unsigned int i=0; i<count; i+=1) {
-    const ScreenCharacter *character = &characters[i];
-    *t++ = character->text;
-    *a++ = character->attributes;
+    if ((attributesBuffer = malloc(ARRAY_SIZE(attributesBuffer, count)))) {
+      wchar_t *text = textBuffer;
+      unsigned char *attributes = attributesBuffer;
+
+      const ScreenCharacter *character = characters;
+      const ScreenCharacter *end = character + count;
+
+      while (character < end) {
+        *text++ = character->text;
+        *attributes++ = character->attributes;
+        character += 1;
+      }
+
+      sayWideCharacters(&spk, textBuffer, attributesBuffer, count, options);
+      free(attributesBuffer);
+    } else {
+      logMallocError();
+    }
+
+    free(textBuffer);
+  } else {
+    logMallocError();
   }
-
-  sayWideCharacters(&spk, text, attributes, count, options);
 }
 
 void
@@ -1409,7 +1428,7 @@ showDotPattern (unsigned char dots, unsigned char duration) {
   }
 
   memset(brl.buffer, dots, brl.textColumns*brl.textRows);
-  if (!writeBrailleWindow(&brl, NULL, 0)) return 0;
+  if (!writeBrailleWindow(&brl, NULL, SCQ_GOOD)) return 0;
 
   drainBrailleOutput(&brl, duration);
   return 1;
@@ -1461,7 +1480,7 @@ typedef struct {
 
   struct {
     AsyncEvent *event;
-    unsigned finished:1;
+    unsigned char finished:1;
   } wait;
 } CoreTaskData;
 

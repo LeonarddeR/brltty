@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -44,6 +44,7 @@
 #include "blink.h"
 #include "routing.h"
 #include "api_control.h"
+#include "options.h"
 #include "core.h"
 
 static void
@@ -1001,26 +1002,38 @@ autospeak (AutospeakMode mode) {
     }
 
   autospeak:
-    if (mode == AUTOSPEAK_SILENT) count = 0;
+    if (scr.quality >= autospeakMinimumScreenContentQuality) {
+      if (mode == AUTOSPEAK_SILENT) count = 0;
 
-    characters += column;
-    int interrupt = 1;
+      characters += column;
+      int interrupt = 1;
 
-    if (indent) {
-      if (speakIndent(characters, count, 0)) {
-        interrupt = 0;
+      if (indent) {
+        if (speakIndent(characters, count, 0)) {
+          interrupt = 0;
+        }
       }
-    }
 
-    if (count && (scr.quality >= autospeakMinimumScreenContentQuality)) {
-      if (!reason) reason = "unknown reason";
+      if ((characters == newCharacters) && (count > 1)) {
+        if (isAllSpaceCharacters(newCharacters, newWidth)) {
+          count = 0;
 
-      logMessage(LOG_CATEGORY(SPEECH_EVENTS),
-        "autospeak: %s: [%d,%d] %d.%d",
-        reason, ses->winx, ses->winy, column, count
-      );
+          if (prefs.autospeakEmptyLine) {
+            sayString(&spk, gettext("blank"), SAY_OPT_MUTE_FIRST);
+          }
+        }
+      }
 
-      speakCharacters(characters, count, 0, interrupt);
+      if (count) {
+        if (!reason) reason = "unknown reason";
+
+        logMessage(LOG_CATEGORY(SPEECH_EVENTS),
+          "autospeak: %s: [%d,%d] %d.%d",
+          reason, ses->winx, ses->winy, column, count
+        );
+
+        speakCharacters(characters, count, 0, interrupt);
+      }
     }
   }
 
@@ -1085,8 +1098,10 @@ doUpdate (void) {
   if (scr.unreadable) {
     logMessage(LOG_CATEGORY(UPDATE_EVENTS), "screen unreadable: %s", scr.unreadable);
   } else {
-    logMessage(LOG_CATEGORY(UPDATE_EVENTS), "screen: #%d %dx%d [%d,%d]",
-               scr.number, scr.cols, scr.rows, scr.posx, scr.posy);
+    logMessage(LOG_CATEGORY(UPDATE_EVENTS),
+      "screen: #%d %dx%d [%d,%d] scq:%u",
+      scr.number, scr.cols, scr.rows, scr.posx, scr.posy, scr.quality
+    );
   }
 
   if (opt_releaseDevice) {
@@ -1258,9 +1273,11 @@ doUpdate (void) {
           unsigned char cells[length];
           memset(cells, 0, length);
           renderStatusFields(fields, cells);
-          fillDotsRegion(textBuffer, brl.buffer,
-                         statusStart, statusCount, brl.textColumns, brl.textRows,
-                         cells, length);
+
+          fillDotsRegion(
+            textBuffer, brl.buffer, statusStart, statusCount,
+            brl.textColumns, brl.textRows, cells, length
+          );
         }
 
         fillStatusSeparator(textBuffer, brl.buffer);

@@ -87,10 +87,13 @@ HKR,,Icon,,-20
 "LibUSB-1.0: Metec [all models]"=LIBUSB_DEV, USB\VID_0452&PID_0100
 
 ; Device: 045E:930A
-"LibUSB-1.0: HIMS [Braille Sense (USB 1.1)], HIMS [Braille Sense (USB 2.0)], HIMS [Braille Sense 6 (USB 2.1)], HIMS [Braille Sense U2 (USB 2.0)]"=LIBUSB_DEV, USB\VID_045E&PID_930A
+"LibUSB-1.0: HIMS [Braille Sense (USB 1.1)], HIMS [Braille Sense (USB 2.0)], HIMS [Braille Sense U2 (USB 2.0)], HIMS [BrailleSense 6 (USB 2.1)]"=LIBUSB_DEV, USB\VID_045E&PID_930A
 
 ; Device: 045E:930B
 "LibUSB-1.0: HIMS [Braille Edge and QBrailleXL]"=LIBUSB_DEV, USB\VID_045E&PID_930B
+
+; Device: 045E:940A
+"LibUSB-1.0: HIMS [eMotion (HID)]"=LIBUSB_DEV, USB\VID_045E&PID_940A
 
 ; Device: 0483:A1D3
 "LibUSB-1.0: Baum [Orbit Reader 20 (20 cells)]"=LIBUSB_DEV, USB\VID_0483&PID_A1D3
@@ -240,7 +243,7 @@ HKR,,Icon,,-20
 ; Generic Identifier
 ; Vendor: Cygnal Integrated Products, Inc.
 ; Product: CP210x UART Bridge / myAVR mySmartUSB light
-"LibUSB-1.0: BrailleMemo [Pocket], Seika [Braille Display]"=LIBUSB_DEV, USB\VID_10C4&PID_EA60
+"LibUSB-1.0: BrailleMemo [Next Touch 40], BrailleMemo [Pocket], Seika [Braille Display]"=LIBUSB_DEV, USB\VID_10C4&PID_EA60
 
 ; Device: 10C4:EA80
 ; Generic Identifier
@@ -256,6 +259,12 @@ HKR,,Icon,,-20
 
 ; Device: 16C0:05E1
 "LibUSB-1.0: Canute [all models]"=LIBUSB_DEV, USB\VID_16C0&PID_05E1
+
+; Device: 1A86:55D3
+; Generic Identifier
+; Vendor: QinHeng Electronics
+; Product: USB Single Serial
+"LibUSB-1.0: HIMS [eMotion (legacy)]"=LIBUSB_DEV, USB\VID_1A86&PID_55D3
 
 ; Device: 1A86:7523
 ; Generic Identifier
@@ -353,8 +362,35 @@ HKR,,Icon,,-20
 ; Device: 1FE4:008B
 "LibUSB-1.0: HandyTech [Basic Braille 160]"=LIBUSB_DEV, USB\VID_1FE4&PID_008B
 
+; Device: 1FE4:0092
+"LibUSB-1.0: HandyTech [Basic Braille 20 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0092
+
+; Device: 1FE4:0093
+"LibUSB-1.0: HandyTech [Basic Braille 32 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0093
+
+; Device: 1FE4:0094
+"LibUSB-1.0: HandyTech [Basic Braille 40 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0094
+
+; Device: 1FE4:0096
+"LibUSB-1.0: HandyTech [Basic Braille 64 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0096
+
+; Device: 1FE4:0097
+"LibUSB-1.0: HandyTech [Basic Braille 80 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0097
+
+; Device: 1FE4:009A
+"LibUSB-1.0: HandyTech [Basic Braille 48 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_009A
+
+; Device: 1FE4:009C
+"LibUSB-1.0: HandyTech [Basic Braille 84 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_009C
+
 ; Device: 1FE4:00A4
 "LibUSB-1.0: HandyTech [Activator]"=LIBUSB_DEV, USB\VID_1FE4&PID_00A4
+
+; Device: 1FE4:00A6
+"LibUSB-1.0: HandyTech [Activator Pro 64]"=LIBUSB_DEV, USB\VID_1FE4&PID_00A6
+
+; Device: 1FE4:00A8
+"LibUSB-1.0: HandyTech [Activator Pro 80]"=LIBUSB_DEV, USB\VID_1FE4&PID_00A8
 
 ; Device: 4242:0001
 "LibUSB-1.0: Pegasus [all models]"=LIBUSB_DEV, USB\VID_4242&PID_0001
@@ -467,10 +503,13 @@ HKR,,Icon,,-20
 "LibUSB-1.0: Metec [all models]"=LIBUSB_DEV, USB\VID_0452&PID_0100
 
 ; Device: 045E:930A
-"LibUSB-1.0: HIMS [Braille Sense (USB 1.1)], HIMS [Braille Sense (USB 2.0)], HIMS [Braille Sense 6 (USB 2.1)], HIMS [Braille Sense U2 (USB 2.0)]"=LIBUSB_DEV, USB\VID_045E&PID_930A
+"LibUSB-1.0: HIMS [Braille Sense (USB 1.1)], HIMS [Braille Sense (USB 2.0)], HIMS [Braille Sense U2 (USB 2.0)], HIMS [BrailleSense 6 (USB 2.1)]"=LIBUSB_DEV, USB\VID_045E&PID_930A
 
 ; Device: 045E:930B
 "LibUSB-1.0: HIMS [Braille Edge and QBrailleXL]"=LIBUSB_DEV, USB\VID_045E&PID_930B
+
+; Device: 045E:940A
+"LibUSB-1.0: HIMS [eMotion (HID)]"=LIBUSB_DEV, USB\VID_045E&PID_940A
 
 ; Device: 0483:A1D3
 "LibUSB-1.0: Baum [Orbit Reader 20 (20 cells)]"=LIBUSB_DEV, USB\VID_0483&PID_A1D3
@@ -620,7 +659,7 @@ HKR,,Icon,,-20
 ; Generic Identifier
 ; Vendor: Cygnal Integrated Products, Inc.
 ; Product: CP210x UART Bridge / myAVR mySmartUSB light
-"LibUSB-1.0: BrailleMemo [Pocket], Seika [Braille Display]"=LIBUSB_DEV, USB\VID_10C4&PID_EA60
+"LibUSB-1.0: BrailleMemo [Next Touch 40], BrailleMemo [Pocket], Seika [Braille Display]"=LIBUSB_DEV, USB\VID_10C4&PID_EA60
 
 ; Device: 10C4:EA80
 ; Generic Identifier
@@ -636,6 +675,12 @@ HKR,,Icon,,-20
 
 ; Device: 16C0:05E1
 "LibUSB-1.0: Canute [all models]"=LIBUSB_DEV, USB\VID_16C0&PID_05E1
+
+; Device: 1A86:55D3
+; Generic Identifier
+; Vendor: QinHeng Electronics
+; Product: USB Single Serial
+"LibUSB-1.0: HIMS [eMotion (legacy)]"=LIBUSB_DEV, USB\VID_1A86&PID_55D3
 
 ; Device: 1A86:7523
 ; Generic Identifier
@@ -733,8 +778,35 @@ HKR,,Icon,,-20
 ; Device: 1FE4:008B
 "LibUSB-1.0: HandyTech [Basic Braille 160]"=LIBUSB_DEV, USB\VID_1FE4&PID_008B
 
+; Device: 1FE4:0092
+"LibUSB-1.0: HandyTech [Basic Braille 20 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0092
+
+; Device: 1FE4:0093
+"LibUSB-1.0: HandyTech [Basic Braille 32 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0093
+
+; Device: 1FE4:0094
+"LibUSB-1.0: HandyTech [Basic Braille 40 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0094
+
+; Device: 1FE4:0096
+"LibUSB-1.0: HandyTech [Basic Braille 64 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0096
+
+; Device: 1FE4:0097
+"LibUSB-1.0: HandyTech [Basic Braille 80 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_0097
+
+; Device: 1FE4:009A
+"LibUSB-1.0: HandyTech [Basic Braille 48 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_009A
+
+; Device: 1FE4:009C
+"LibUSB-1.0: HandyTech [Basic Braille 84 Plus]"=LIBUSB_DEV, USB\VID_1FE4&PID_009C
+
 ; Device: 1FE4:00A4
 "LibUSB-1.0: HandyTech [Activator]"=LIBUSB_DEV, USB\VID_1FE4&PID_00A4
+
+; Device: 1FE4:00A6
+"LibUSB-1.0: HandyTech [Activator Pro 64]"=LIBUSB_DEV, USB\VID_1FE4&PID_00A6
+
+; Device: 1FE4:00A8
+"LibUSB-1.0: HandyTech [Activator Pro 80]"=LIBUSB_DEV, USB\VID_1FE4&PID_00A8
 
 ; Device: 4242:0001
 "LibUSB-1.0: Pegasus [all models]"=LIBUSB_DEV, USB\VID_4242&PID_0001

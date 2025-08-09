@@ -2,7 +2,7 @@
  * BRLTTY - A background process providing access to the console screen (when in
  *          text mode) for a blind person using a refreshable braille display.
  *
- * Copyright (C) 1995-2023 by The BRLTTY Developers.
+ * Copyright (C) 1995-2025 by The BRLTTY Developers.
  *
  * BRLTTY comes with ABSOLUTELY NO WARRANTY.
  *
@@ -306,6 +306,13 @@ ptyEndScreen (void) {
   sendTerminalMessage(TERM_MSG_EMULATOR_EXITING, NULL, 0);
   detachScreenSegment(segmentHeader);
   destroySegment();
+}
+
+void
+ptyResizeScreen (unsigned int lines, unsigned int columns) {
+  if (is_term_resized(lines, columns)) {
+    resize_term(lines, columns);
+  }
 }
 
 void

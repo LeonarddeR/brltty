@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -17,19 +17,19 @@
 ###############################################################################
 
 # BRLTTY Contraction Table - German (contracted - 1998 standard)
-# Created by Mario Lang <mlang@delysid.org>.
+# Created by Mario Lang <mlang@tugraz.at>.
 
 include de-g1.ctb
 
-class e e
-class g g
 class h h
+class i i
 class m m
 class n n
 class r r
 class hilmnrsu hilmnrsu
 class l l
 class lnr lnr
+class cost cost
 class st st
 class konsonant bcdfghjklmnpqrstvwxyz
 

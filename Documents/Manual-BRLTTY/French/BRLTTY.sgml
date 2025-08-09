@@ -26,30 +26,30 @@
 <article>
 
 <titlepag>
-  <title>Manuel de référence de BRLTTY
-    <subtitle>Accès à l'écran d'une console pour les personnes non-voyantes utilisant des afficheurs braille
+  <title>Manuel de rÃ©fÃ©rence de BRLTTY
+    <subtitle>AccÃ¨s Ã  l'Ã©cran d'une console pour les personnes non-voyantes utilisant des afficheurs braille
   <author>
     <name>Nikhil Nair <tt><htmlurl url="mailto:nn201@cus.cam.ac.uk" name="&lt;nn201@cus.cam.ac.uk&gt;"></tt>
   <and>
     <name>Nicolas Pitre <tt><htmlurl url="mailto:nico@fluxnic.net" name="&lt;nico@fluxnic.net&gt;"></tt>
   <and>
-    <name>Stéphane Doyon <tt><htmlurl url="mailto:s.doyon@videotron.ca" name="&lt;s.doyon@videotron.ca&gt;"></tt>
+    <name>StÃ©phane Doyon <tt><htmlurl url="mailto:s.doyon@videotron.ca" name="&lt;s.doyon@videotron.ca&gt;"></tt>
   <and>
     <name>Dave Mielke <tt><htmlurl url="mailto:dave@mielke.cc" name="&lt;dave@mielke.cc&gt;"></tt>
   <and>
-    <name>Traduction française
+    <name>Traduction franÃ§aise
   <and>
     <name>
       Jean-Philippe Mengual
         <tt><htmlurl url="mailto:texou@accelibreinfo.eu" name="&lt;texou@accelibreinfo.eu&gt;"></tt>
       pour
         <tt><htmlurl url="http://www.traduc.org/" name="Traduc.org"></tt>
-  <date>Version 6.6, juillet 2023
+  <date>Version 6.8, juillet 2025
   <abstract>
-    Copyright &copy; 1995-2023 by Les Développeurs de BRLTTY.
+    Copyright &copy; 1995-2025 by Les DÃ©veloppeurs de BRLTTY.
     BRLTTY est un logiciel libre, et n'est fourni avec AUCUNE
-    GARANTIE. Il est placé sous les termes de la version 2 ou
-    ultérieure de la <bf>GNU General Public License</bf> publiée par
+    GARANTIE. Il est placÃ© sous les termes de la version 2 ou
+    ultÃ©rieure de la <bf>GNU General Public License</bf> publiÃ©e par
     <bf>The Free Software Foundation</bf>.
   </abstract>
 </titlepag>
@@ -58,28 +58,28 @@
 <lof>
 <lot>
 
-<sect>Préambule<p>
+<sect>PrÃ©ambule<p>
 
 <sect1>Licence<p>
 Ce programme est un logiciel libre. Vous pouvez le redistribuer et/ou
 le modifier sous les termes de la <htmlurl url="http://www.gnu.org/licenses/licenses.html#LGPL" name="GNU Lesser General Public License">
-stipulée par la <htmlurl url="http://www.gnu.org/fsf/fsf.html" name="Free Software Foundation">. Vous pouvez utiliser une version 2,1 (ou supérieure) de la licence.
+stipulÃ©e par la <htmlurl url="http://www.gnu.org/fsf/fsf.html" name="Free Software Foundation">. Vous pouvez utiliser une version 2,1 (ou supÃ©rieure) de la licence.
 
-Vous devriez avoir reçu une copie de la licence avec le
-programme. Elle devrait être dans le fichier <tt/LICENSE-LGPL/ du
-répertoire principal. Si ce n'est pas le cas, écrivez à la Free Software
+Vous devriez avoir reÃ§u une copie de la licence avec le
+programme. Elle devrait Ãªtre dans le fichier <tt/LICENSE-LGPL/ du
+rÃ©pertoire principal. Si ce n'est pas le cas, Ã©crivez Ã  la Free Software
 Foundation Inc., 675 Mass Ave, Cambridge, MA 02139, USA.
 
 <sect1>Mise en garde<p>
-Ce programme est distribué avec l'espoir d'être utile, mais SANS
-AUCUNE GARANTIE, même pas celle d'être COMMERCIALISABLE ou
-de CONVENIR À UNE FINALITÉ EN PARTICULIER. Voir la <bf>GNU General
-Public License</bf> pour plus de détails.
+Ce programme est distribuÃ© avec l'espoir d'Ãªtre utile, mais SANS
+AUCUNE GARANTIE, mÃªme pas celle d'Ãªtre COMMERCIALISABLE ou
+de CONVENIR Ã€ UNE FINALITÃ‰ EN PARTICULIER. Voir la <bf>GNU General
+Public License</bf> pour plus de dÃ©tails.
 
 <sect1>Contacts<label id="contact"><p>
-BRLTTY est le travail d'une équipe. Pour des informations actualisées,
+BRLTTY est le travail d'une Ã©quipe. Pour des informations actualisÃ©es,
 voyez la page Web de BRLTTY sur [<htmlurl url="http://brltty.app/" name="http://brltty.app/">]. Ont
-participé à ce document et au logiciel:
+participÃ© Ã  ce document et au logiciel:
 
 <itemize>
   <item>
@@ -98,7 +98,7 @@ participé à ce document et au logiciel:
     Mario Lang (actif)
     <descrip>
       <tag/Web/<htmlurl url="http://delysid.org/" name="http://delysid.org/">
-      <tag/E-Mail/<htmlurl url="mailto:mlang@delysid.org" name="&lt;mlang@delysid.org&gt;">
+      <tag/E-Mail/<htmlurl url="mailto:mlang@tugraz.at" name="&lt;mlang@tugraz.at&gt;">
     </descrip>
   <item>
     Nicolas Pitre
@@ -107,7 +107,7 @@ participé à ce document et au logiciel:
       <tag/E-Mail/<htmlurl url="mailto:nico@fluxnic.net" name="&lt;nico@fluxnic.net&gt;">
     </descrip>
   <item>
-    Stéphane Doyon
+    StÃ©phane Doyon
     <descrip>
       <tag/Web/<htmlurl url="http://pages.infinit.net/sdoyon/" name="http://pages.infinit.net/sdoyon/">
       <tag/E-Mail/<htmlurl url="mailto:s.doyon@videotron.ca" name="&lt;s.doyon@videotron.ca&gt;">
@@ -121,14 +121,14 @@ participé à ce document et au logiciel:
 </itemize>
 
 Toute question, tout commentaire, toute suggestions, critiques et contributions 
-sont les bienvenus. Même si nos adresses de messagerie sont listées ci-dessus,
+sont les bienvenus. MÃªme si nos adresses de messagerie sont listÃ©es ci-dessus,
 le meilleur moyen de nous contacter est la liste de diffusion BRLTTY. Vous
-pouvez poster sur la liste en envoyant votre message à
-<htmlurl url="mailto:BRLTTY@mielke.cc" name="&lt;BRLTTY@mielke.cc&gt;">. Si
-vous n'êtes pas abonné à la liste, vos messages seront soumis à l'approbation
-du modérateur. Pour vous abonner, vous désabonner, modifier les paramètres de
+pouvez poster sur la liste en envoyant votre message Ã 
+<htmlurl url="mailto:BRLTTY@brltty.app" name="&lt;BRLTTY@brltty.app&gt;">. Si
+vous n'Ãªtes pas abonnÃ© Ã  la liste, vos messages seront soumis Ã  l'approbation
+du modÃ©rateur. Pour vous abonner, vous dÃ©sabonner, modifier les paramÃ¨tres de
 voir les archives, etc, rendez-vous sur la page d'information de la liste, sur
-<htmlurl url="http://mielke.cc/mailman/listinfo/brltty" name="http://mielke.cc/mailman/listinfo/brltty">.
+<htmlurl url="http://brltty.app/mailman/listinfo/brltty" name="http://brltty.app/mailman/listinfo/brltty">.
 
 &introduction
 &compilation

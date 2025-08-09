@@ -2,7 +2,7 @@
 # BRLTTY - A background process providing access to the console screen (when in
 #          text mode) for a blind person using a refreshable braille display.
 #
-# Copyright (C) 1995-2023 by The BRLTTY Developers.
+# Copyright (C) 1995-2025 by The BRLTTY Developers.
 #
 # BRLTTY comes with ABSOLUTELY NO WARRANTY.
 #
@@ -88,13 +88,17 @@ brltty 0x0003 0x0452 0x0100
 # Device: 045E:930A
 # HIMS [Braille Sense (USB 1.1)]
 # HIMS [Braille Sense (USB 2.0)]
-# HIMS [Braille Sense 6 (USB 2.1)]
 # HIMS [Braille Sense U2 (USB 2.0)]
+# HIMS [BrailleSense 6 (USB 2.1)]
 brltty 0x0003 0x045e 0x930a
 
 # Device: 045E:930B
 # HIMS [Braille Edge and QBrailleXL]
 brltty 0x0003 0x045e 0x930b
+
+# Device: 045E:940A
+# HIMS [eMotion (HID)]
+brltty 0x0003 0x045e 0x940a
 
 # Device: 0483:A1D3
 # Baum [Orbit Reader 20 (20 cells)]
@@ -293,6 +297,7 @@ brltty 0x0003 0x0f4e 0x0114
 # Generic Identifier
 # Vendor: Cygnal Integrated Products, Inc.
 # Product: CP210x UART Bridge / myAVR mySmartUSB light
+# BrailleMemo [Next Touch 40]
 # BrailleMemo [Pocket]
 # Seika [Braille Display]
 brltty 0x0003 0x10c4 0xea60
@@ -315,6 +320,13 @@ brltty 0x0003 0x1209 0xabc0
 # Device: 16C0:05E1
 # Canute [all models]
 brltty 0x0003 0x16c0 0x05e1
+
+# Device: 1A86:55D3
+# Generic Identifier
+# Vendor: QinHeng Electronics
+# Product: USB Single Serial
+# HIMS [eMotion (legacy)]
+brltty 0x0003 0x1a86 0x55d3
 
 # Device: 1A86:7523
 # Generic Identifier
@@ -449,9 +461,45 @@ brltty 0x0003 0x1fe4 0x008a
 # HandyTech [Basic Braille 160]
 brltty 0x0003 0x1fe4 0x008b
 
+# Device: 1FE4:0092
+# HandyTech [Basic Braille 20 Plus]
+brltty 0x0003 0x1fe4 0x0092
+
+# Device: 1FE4:0093
+# HandyTech [Basic Braille 32 Plus]
+brltty 0x0003 0x1fe4 0x0093
+
+# Device: 1FE4:0094
+# HandyTech [Basic Braille 40 Plus]
+brltty 0x0003 0x1fe4 0x0094
+
+# Device: 1FE4:0096
+# HandyTech [Basic Braille 64 Plus]
+brltty 0x0003 0x1fe4 0x0096
+
+# Device: 1FE4:0097
+# HandyTech [Basic Braille 80 Plus]
+brltty 0x0003 0x1fe4 0x0097
+
+# Device: 1FE4:009A
+# HandyTech [Basic Braille 48 Plus]
+brltty 0x0003 0x1fe4 0x009a
+
+# Device: 1FE4:009C
+# HandyTech [Basic Braille 84 Plus]
+brltty 0x0003 0x1fe4 0x009c
+
 # Device: 1FE4:00A4
 # HandyTech [Activator]
 brltty 0x0003 0x1fe4 0x00a4
+
+# Device: 1FE4:00A6
+# HandyTech [Activator Pro 64]
+brltty 0x0003 0x1fe4 0x00a6
+
+# Device: 1FE4:00A8
+# HandyTech [Activator Pro 80]
+brltty 0x0003 0x1fe4 0x00a8
 
 # Device: 4242:0001
 # Pegasus [all models]

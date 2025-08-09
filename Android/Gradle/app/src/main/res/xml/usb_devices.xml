@@ -73,13 +73,17 @@
   <!-- Device: 045E:930A -->
   <!-- HIMS [Braille Sense (USB 1.1)] -->
   <!-- HIMS [Braille Sense (USB 2.0)] -->
-  <!-- HIMS [Braille Sense 6 (USB 2.1)] -->
   <!-- HIMS [Braille Sense U2 (USB 2.0)] -->
+  <!-- HIMS [BrailleSense 6 (USB 2.1)] -->
   <usb-device vendor-id="1118" product-id="37642" />
 
   <!-- Device: 045E:930B -->
   <!-- HIMS [Braille Edge and QBrailleXL] -->
   <usb-device vendor-id="1118" product-id="37643" />
+
+  <!-- Device: 045E:940A -->
+  <!-- HIMS [eMotion (HID)] -->
+  <usb-device vendor-id="1118" product-id="37898" />
 
   <!-- Device: 0483:A1D3 -->
   <!-- Baum [Orbit Reader 20 (20 cells)] -->
@@ -278,6 +282,7 @@
   <!-- Generic Identifier -->
   <!-- Vendor: Cygnal Integrated Products, Inc. -->
   <!-- Product: CP210x UART Bridge / myAVR mySmartUSB light -->
+  <!-- BrailleMemo [Next Touch 40] -->
   <!-- BrailleMemo [Pocket] -->
   <!-- Seika [Braille Display] -->
   <usb-device vendor-id="4292" product-id="60000" />
@@ -300,6 +305,13 @@
   <!-- Device: 16C0:05E1 -->
   <!-- Canute [all models] -->
   <usb-device vendor-id="5824" product-id="1505" />
+
+  <!-- Device: 1A86:55D3 -->
+  <!-- Generic Identifier -->
+  <!-- Vendor: QinHeng Electronics -->
+  <!-- Product: USB Single Serial -->
+  <!-- HIMS [eMotion (legacy)] -->
+  <usb-device vendor-id="6790" product-id="21971" />
 
   <!-- Device: 1A86:7523 -->
   <!-- Generic Identifier -->
@@ -434,9 +446,45 @@
   <!-- HandyTech [Basic Braille 160] -->
   <usb-device vendor-id="8164" product-id="139" />
 
+  <!-- Device: 1FE4:0092 -->
+  <!-- HandyTech [Basic Braille 20 Plus] -->
+  <usb-device vendor-id="8164" product-id="146" />
+
+  <!-- Device: 1FE4:0093 -->
+  <!-- HandyTech [Basic Braille 32 Plus] -->
+  <usb-device vendor-id="8164" product-id="147" />
+
+  <!-- Device: 1FE4:0094 -->
+  <!-- HandyTech [Basic Braille 40 Plus] -->
+  <usb-device vendor-id="8164" product-id="148" />
+
+  <!-- Device: 1FE4:0096 -->
+  <!-- HandyTech [Basic Braille 64 Plus] -->
+  <usb-device vendor-id="8164" product-id="150" />
+
+  <!-- Device: 1FE4:0097 -->
+  <!-- HandyTech [Basic Braille 80 Plus] -->
+  <usb-device vendor-id="8164" product-id="151" />
+
+  <!-- Device: 1FE4:009A -->
+  <!-- HandyTech [Basic Braille 48 Plus] -->
+  <usb-device vendor-id="8164" product-id="154" />
+
+  <!-- Device: 1FE4:009C -->
+  <!-- HandyTech [Basic Braille 84 Plus] -->
+  <usb-device vendor-id="8164" product-id="156" />
+
   <!-- Device: 1FE4:00A4 -->
   <!-- HandyTech [Activator] -->
   <usb-device vendor-id="8164" product-id="164" />
+
+  <!-- Device: 1FE4:00A6 -->
+  <!-- HandyTech [Activator Pro 64] -->
+  <usb-device vendor-id="8164" product-id="166" />
+
+  <!-- Device: 1FE4:00A8 -->
+  <!-- HandyTech [Activator Pro 80] -->
+  <usb-device vendor-id="8164" product-id="168" />
 
   <!-- Device: 4242:0001 -->
   <!-- Pegasus [all models] -->
