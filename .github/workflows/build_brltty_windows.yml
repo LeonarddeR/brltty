@@ -76,7 +76,7 @@ jobs:
           cp LICENSE-LGPL install/LICENSE-LGPL.txt
           cp Documents/*.csv install/etc/
           cp Windows/*.bat install/
-          cp /${{ matrix.msystem,, }}/bin/{libgcc_s*.dll,libiconv-2.dll,libpdcurses*.dll,libintl-8.dll} install/bin/ || true
+          cp $MINGW_PREFIX/bin/libgcc_s*.dll $MINGW_PREFIX/bin/libiconv-2.dll $MINGW_PREFIX/bin/libpdcurses*.dll $MINGW_PREFIX/bin/libintl-8.dll install/bin/ 2>/dev/null || true
           cd install/
           rm -f "bin/brltty-config"
           rm -f "etc/brlapi.key"
