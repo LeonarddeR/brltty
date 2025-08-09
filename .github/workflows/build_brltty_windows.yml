@@ -81,7 +81,7 @@ jobs:
           rm -f "bin/brltty-config"
           rm -f "etc/brlapi.key"
 
-      - uses: actions/upload-artifact@v3
+      - uses: actions/upload-artifact@v4
         with:
           name: brltty-${{ matrix.msystem }}
           path: install
